@@ -51,7 +51,7 @@ function OrderForm() {
   const [time, setTime] = useState("");
   const [addVase, setAddVase] = useState(false);
   const [customDescription, setCustomDescription] = useState("");
-  const [contactPref, setContactPref] = useState<"email" | "sms">("email");
+  const [contactPref, setContactPref] = useState<"email" | "text">("email");
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
   const [phone, setPhone] = useState(profile?.phone ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
@@ -229,7 +229,7 @@ function OrderForm() {
             <div className="mt-4">
               <p className="text-sm mb-2">Preferred contact method</p>
               <div className="flex gap-3">
-                {(["email", "sms"] as const).map((m) => (
+                {(["email", "text"] as const).map((m) => (
                   <button key={m} type="button" onClick={() => setContactPref(m)}
                     className={`rounded-md border px-4 py-2 text-sm ${contactPref === m ? "border-primary bg-primary/5" : "border-border"}`}>
                     {m === "email" ? "Email" : "Text message"}
