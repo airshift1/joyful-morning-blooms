@@ -92,12 +92,11 @@ function OrdersTab() {
                 <span className="px-2 py-0.5 rounded-full text-xs bg-secondary">{o.payment_method}</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                {formatDate(o.created_at)} · {o.quantity} × {o.size_name ?? "—"} · {formatMoney(o.total_cents)}
+                {formatDate(o.created_at)} · {o.quantity} × {o.size_name ?? "—"} · {formatMoney(o.subtotal_cents)}
               </p>
               <p className="mt-2 text-sm"><strong>{o.full_name}</strong> · {o.phone} · {o.email}</p>
               <p className="text-sm text-muted-foreground">Prefers: {o.contact_preference}</p>
-              <p className="mt-2 text-sm">{o.fulfillment_type} on {o.requested_date}{o.requested_time ? ` at ${o.requested_time}` : ""}</p>
-              {o.delivery_address && <p className="text-sm text-muted-foreground">→ {o.delivery_address}</p>}
+              <p className="mt-2 text-sm">{o.fulfillment} on {o.needed_date}{o.needed_time ? ` at ${o.needed_time}` : ""}</p>
               {o.vase_added && <p className="text-sm">+ Vase (+{formatMoney(o.vase_price_cents)})</p>}
               {o.custom_description && (
                 <div className="mt-3 p-3 rounded-md bg-secondary/60 text-sm whitespace-pre-line">

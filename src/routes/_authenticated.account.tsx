@@ -48,10 +48,10 @@ function Account() {
                 <p className="text-sm text-muted-foreground">
                   {formatDate(o.created_at)} · {o.quantity} × {o.size_name ?? "standard"}
                 </p>
-                <p className="text-sm mt-1">Fulfillment: {o.fulfillment_type} on {o.requested_date}{o.requested_time ? ` at ${o.requested_time}` : ""}</p>
+                <p className="text-sm mt-1">Fulfillment: {o.fulfillment} on {o.needed_date}{o.needed_time ? ` at ${o.needed_time}` : ""}</p>
               </div>
               <div className="text-right">
-                <p className="text-lg">{formatMoney(o.total_cents)}</p>
+                <p className="text-lg">{formatMoney(o.subtotal_cents)}</p>
                 <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs bg-secondary">{o.status}</span>
               </div>
             </div>
