@@ -74,7 +74,7 @@ function OrdersTab() {
     },
   });
 
-  async function setStatus(id: string, status: string) {
+  async function setStatus(id: string, status: any) {
     const { error } = await supabase.from("orders").update({ status }).eq("id", id);
     if (error) toast.error(error.message); else { toast.success("Updated"); refetch(); }
   }
@@ -126,7 +126,7 @@ function ProductsTab() {
     },
   });
 
-  async function update(id: string, patch: any) {
+  async function update(id: string, patch: Record<string, any>) {
     const { error } = await supabase.from("products").update(patch).eq("id", id);
     if (error) toast.error(error.message); else refetch();
   }
@@ -149,7 +149,7 @@ function ProductsTab() {
     <div className="py-6 space-y-4">
       <Button onClick={addProduct}>+ Add product</Button>
       {(products ?? []).map((p: any) => (
-        <ProductEditor key={p.id} product={p} onUpdate={(patch) => update(p.id, patch)} onDelete={() => del(p.id)} onRefresh={refetch} />
+        <ProductEditor key={p.id} product={p} onUpdate={(patch: Record<string, any>) => update(p.id, patch)} onDelete={() => del(p.id)} onRefresh={refetch} />
       ))}
     </div>
   );
@@ -207,7 +207,7 @@ function ReviewsTab() {
     },
   });
 
-  async function setStatus(id: string, status: string) {
+  async function setStatus(id: string, status: any) {
     const { error } = await supabase.from("reviews").update({ status }).eq("id", id);
     if (error) toast.error(error.message); else refetch();
   }
