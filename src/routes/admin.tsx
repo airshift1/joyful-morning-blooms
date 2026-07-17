@@ -340,3 +340,116 @@ function SettingsTab() {
     </div>
   );
 }
+
+function BrandingTab() {
+  const { data: row, refetch } = useQuery({
+    queryKey: ["admin-branding"],
+    queryFn: async () => {
+      const { data } = await supabase.from("site_settings").select("value").eq("key", "branding").maybeSingle();
+      return (data?.value ?? {}) as any;
+    },
+  });
+  const branding = row ?? {};
+  const [insta, setInsta] = useState<string>(branding.instagram_url ?? "");
+
+  async function save(patch: Record<string, any>) {
+    const next = { ...branding, ...patch };
+    const { error } = await supabase.from("site_settings").upsert({ key: "branding", value: next });
+    if (error) toast.error(error.message); else { toast.success("Saved"); refetch(); }
+  }
+
+  async function uploadTo(kind: "logo_path" | "favicon_path", file: File) {
+    const ext = file.name.split(".").pop() || "png";
+    const path = `branding/${kind}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("product-photos").upload(path, file, { upsert: true });
+    if (error) { toast.error(error.message); return; }
+    await save({ [kind]: path });
+  }
+
+  const logo = branding.logo_path ? productPhotoUrl(branding.logo_path) : null;
+  const favicon = branding.favicon_path ? productPhotoUrl(branding.favicon_path) : null;
+
+  return (
+    <div className="py-6 space-y-6 max-w-2xl">
+      <section className="rounded-lg border border-border bg-card p-6">
+        <h3 className="font-display text-2xl mb-4">Site logo</h3>
+        <div className="flex items-center gap-4">
+          {logo && <img src={logo} alt="Logo" className="h-16 w-16 rounded-full object-cover border border-border" />}
+          <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadTo("logo_path", e.target.files[0])} />
+          {logo && <Button size="sm" variant="outline" onClick={() => save({ logo_path: null })}>Remove</Button>}
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-border bg-card p-6">
+        <h3 className="font-display text-2xl mb-4">Favicon (browser tab icon)</h3>
+        <div className="flex items-center gap-4">
+          {favicon && <img src={favicon} alt="Favicon" className="h-10 w-10 rounded object-cover border border-border" />}
+          <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadTo("favicon_path", e.target.files[0])} />
+          {favicon && <Button size="sm" variant="outline" onClick={() => save({ favicon_path: null })}>Remove</Button>}
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-border bg-card p-6">
+        <h3 className="font-display text-2xl mb-4">Instagram</h3>
+        <div className="flex items-center gap-2">
+          <input
+            value={insta}
+            onChange={(e) => setInsta(e.target.value)}
+            placeholder="https://instagram.com/yourhandle"
+            className="flex-1 rounded-md border border-input px-3 py-2 text-sm"
+          />
+          <Button size="sm" onClick={() => save({ instagram_url: insta.trim() })}>Save</Button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function UsersTab() {
+  const { data: rows, refetch } = useQuery({
+    queryKey: ["admin-users"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, user_roles(role)")
+        .order("email");
+      return data ?? [];
+    },
+  });
+
+  async function toggleAdmin(userId: string, makeAdmin: boolean) {
+    if (makeAdmin) {
+      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: "admin" as any });
+      if (error && !error.message.includes("duplicate")) { toast.error(error.message); return; }
+    } else {
+      const { error } = await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "admin");
+      if (error) { toast.error(error.message); return; }
+    }
+    toast.success("Updated");
+    refetch();
+  }
+
+  return (
+    <div className="py-6 space-y-3">
+      <p className="text-sm text-muted-foreground">Promote another account to admin, or remove admin access.</p>
+      {(rows ?? []).map((u: any) => {
+        const isAdmin = (u.user_roles ?? []).some((r: any) => r.role === "admin");
+        return (
+          <div key={u.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+            <div>
+              <p className="font-medium">{u.full_name || "(no name)"}</p>
+              <p className="text-sm text-muted-foreground">{u.email}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              {isAdmin && <span className="px-2 py-0.5 rounded-full text-xs bg-accent text-accent-foreground">Admin</span>}
+              <Button size="sm" variant={isAdmin ? "outline" : "default"} onClick={() => toggleAdmin(u.id, !isAdmin)}>
+                {isAdmin ? "Remove admin" : "Make admin"}
+              </Button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
