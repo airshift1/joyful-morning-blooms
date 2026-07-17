@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatMoney } from "@/lib/format";
 import { fallbackImageFor } from "@/lib/product-assets";
 import { productPhotoUrl } from "@/lib/photo-url";
+import { Button } from "@/components/ui/button";
+import { useSiteSettings } from "@/hooks/use-site-settings";
 
 export const Route = createFileRoute("/shop")({
   head: () => ({
