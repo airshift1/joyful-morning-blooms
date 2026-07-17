@@ -12,9 +12,9 @@ import storyImg from "@/assets/story-image.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Joyful Morning Bloom— Handcrafted florals for life's moments" },
+      { title: "Joyful Morning Blooms — Handcrafted florals for life's moments" },
       { name: "description", content: "Seasonal, hand-tied bouquets and custom arrangements. Order online" },
-      { property: "og:title", content: "Joyful Morning Bloom— Handcrafted florals for life's moments" },
+      { property: "og:title", content: "Joyful Morning Blooms — Handcrafted florals for life's moments" },
       { property: "og:description", content: "Seasonal, hand-tied bouquets and custom arrangements. Order online" },
     ],
   }),
