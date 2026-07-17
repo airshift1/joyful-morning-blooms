@@ -3,11 +3,15 @@ import { useState } from "react";
 import { Menu, X, ShoppingBag, User as UserIcon, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { useSiteSettings } from "@/hooks/use-site-settings";
+import { brandingUrl } from "@/lib/photo-url";
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const { user, isAdmin, signOut } = useAuth();
   const router = useRouter();
+  const { branding, shop } = useSiteSettings();
+  const logo = brandingUrl(branding.logo_path);
 
   const nav = [
     { to: "/", label: "Home" },
@@ -20,8 +24,12 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur">
       <div className="container-editorial flex h-16 items-center justify-between gap-6">
         <Link to="/" className="flex items-center gap-2 group">
-          <Sparkles className="h-4 w-4 text-accent" />
-          <span className="font-display text-xl tracking-tight">Petal &amp; Stem</span>
+          {logo ? (
+            <img src={logo} alt={shop.name} className="h-8 w-8 rounded-full object-cover" />
+          ) : (
+            <Sparkles className="h-4 w-4 text-accent" />
+          )}
+          <span className="font-display text-xl tracking-tight">{shop.name}</span>
         </Link>
 
         <nav className="hidden md:flex items-center gap-8 text-sm">

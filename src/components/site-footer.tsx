@@ -1,18 +1,34 @@
 import { Link } from "@tanstack/react-router";
-import { Sparkles } from "lucide-react";
+import { Instagram, Sparkles } from "lucide-react";
+import { useSiteSettings } from "@/hooks/use-site-settings";
+import { brandingUrl } from "@/lib/photo-url";
 
 export function SiteFooter() {
+  const { branding, shop } = useSiteSettings();
+  const logo = brandingUrl(branding.logo_path);
+  const insta = branding.instagram_url?.trim();
+
   return (
     <footer className="border-t border-border/60 mt-24">
       <div className="container-editorial py-12 grid gap-10 md:grid-cols-4">
         <div>
           <Link to="/" className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-accent" />
-            <span className="font-display text-xl">Petal &amp; Stem</span>
+            {logo ? (
+              <img src={logo} alt={shop.name} className="h-8 w-8 rounded-full object-cover" />
+            ) : (
+              <Sparkles className="h-4 w-4 text-accent" />
+            )}
+            <span className="font-display text-xl">{shop.name}</span>
           </Link>
           <p className="mt-3 text-sm text-muted-foreground">
             Handcrafted florals for life's moments.
           </p>
+          {insta && (
+            <a href={insta} target="_blank" rel="noopener noreferrer"
+               className="mt-4 inline-flex items-center gap-2 text-sm text-foreground/80 hover:text-foreground">
+              <Instagram className="h-4 w-4" /> Follow on Instagram
+            </a>
+          )}
         </div>
         <div>
           <p className="eyebrow mb-3">Shop</p>
@@ -37,7 +53,7 @@ export function SiteFooter() {
       </div>
       <div className="border-t border-border/60">
         <div className="container-editorial py-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
-          <p>© {new Date().getFullYear()} Petal &amp; Stem. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} {shop.name}. All rights reserved.</p>
           <p>Made with care.</p>
         </div>
       </div>

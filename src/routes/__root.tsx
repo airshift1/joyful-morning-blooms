@@ -135,6 +135,26 @@ function AuthSync() {
   return null;
 }
 
+function DynamicFavicon() {
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("site_settings").select("value").eq("key", "branding").maybeSingle();
+      const path = (data?.value as any)?.favicon_path as string | undefined;
+      if (!path) return;
+      const url = path.startsWith("http")
+        ? path
+        : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/product-photos/${path}`;
+      document.querySelectorAll("link[rel~='icon']").forEach((el) => el.remove());
+      const link = document.createElement("link");
+      link.rel = "icon";
+      link.href = url;
+      document.head.appendChild(link);
+    })();
+  }, []);
+  return null;
+}
+
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -142,7 +162,9 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AuthSync />
+        <DynamicFavicon />
         <div className="flex flex-col min-h-screen">
+
           <SiteHeader />
           <main className="flex-1">
             <Outlet />
