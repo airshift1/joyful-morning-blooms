@@ -20,7 +20,7 @@ export function useSiteSettings() {
   });
   return {
     branding: (data?.branding ?? {}) as Branding,
-    shop: (data?.shop ?? { name: "Petal & Stem" }) as { name: string; tagline?: string },
+    shop: (data?.shop ?? { name: "Joyful Morning Blooms" }) as { name: string; tagline?: string },
     features: (data?.features ?? {}) as Record<string, boolean>,
     vase: (data?.vase ?? { enabled: true, price_cents: 300 }) as { enabled: boolean; price_cents: number },
   };

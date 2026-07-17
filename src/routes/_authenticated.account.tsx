@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/account")({
   head: () => ({
-    meta: [{ title: "My account — Petal & Stem" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "My account — Joyful Morning Blooms" }, { name: "robots", content: "noindex" }],
   }),
   component: Account,
 });

@@ -83,7 +83,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Joyful Morning Bloom— Handcrafted florals for life's moments" },
       { name: "description", content: "Seasonal, hand-tied bouquets and custom arrangements. Order online" },
-      { name: "author", content: "Petal & Stem" },
+      { name: "author", content: "Joyful Morning Blooms" },
       { property: "og:title", content: "Joyful Morning Bloom— Handcrafted florals for life's moments" },
       { property: "og:description", content: "Seasonal, hand-tied bouquets and custom arrangements. Order online" },
       { property: "og:type", content: "website" },

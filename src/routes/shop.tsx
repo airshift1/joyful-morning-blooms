@@ -8,9 +8,9 @@ import { productPhotoUrl } from "@/lib/photo-url";
 export const Route = createFileRoute("/shop")({
   head: () => ({
     meta: [
-      { title: "Shop florals — Petal & Stem" },
+      { title: "Shop florals — Joyful Morning Blooms" },
       { name: "description", content: "Browse our full collection of hand-tied bouquets, wedding florals, and custom arrangements." },
-      { property: "og:title", content: "Shop florals — Petal & Stem" },
+      { property: "og:title", content: "Shop florals — Joyful Morning Blooms" },
       { property: "og:description", content: "Browse hand-tied bouquets and custom arrangements." },
     ],
   }),

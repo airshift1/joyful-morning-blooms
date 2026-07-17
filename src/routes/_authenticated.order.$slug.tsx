@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/order/$slug")({
   head: () => ({
-    meta: [{ title: "Place your order — Petal & Stem" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Place your order — Joyful Morning Blooms" }, { name: "robots", content: "noindex" }],
   }),
   component: OrderForm,
 });

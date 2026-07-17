@@ -13,7 +13,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/shop/$slug")({
   head: ({ params }) => ({
     meta: [
-      { title: `${params.slug.replace(/-/g, " ")} — Petal & Stem` },
+      { title: `${params.slug.replace(/-/g, " ")} — Joyful Morning Blooms` },
       { name: "description", content: "Order this handcrafted floral arrangement online for pickup or delivery." },
     ],
   }),
