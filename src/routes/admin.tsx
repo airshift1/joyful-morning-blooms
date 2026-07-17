@@ -53,14 +53,19 @@ function AdminDashboard() {
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
           <TabsTrigger value="content">Pages</TabsTrigger>
+          <TabsTrigger value="branding">Branding</TabsTrigger>
+          <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="orders"><OrdersTab /></TabsContent>
         <TabsContent value="products"><ProductsTab /></TabsContent>
         <TabsContent value="reviews"><ReviewsTab /></TabsContent>
         <TabsContent value="content"><ContentTab /></TabsContent>
+        <TabsContent value="branding"><BrandingTab /></TabsContent>
+        <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="settings"><SettingsTab /></TabsContent>
       </Tabs>
+
     </div>
   );
 }
