@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/use-auth";
-import { useEffect } from "react";
+
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -55,10 +56,21 @@ function Auth() {
       }
     } catch (err: any) {
       toast.error(err.message ?? "Something went wrong");
-    } finally {
+  }
+
+  async function signInWithGoogle() {
+    setBusy(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) throw result.error;
+    } catch (err: any) {
+      toast.error(err.message ?? "Google sign-in failed");
       setBusy(false);
     }
   }
+
 
   return (
     <div className="container-editorial py-16 md:py-24 max-w-md">
