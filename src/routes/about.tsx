@@ -5,9 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About — Petal & Stem" },
+      { title: "About — Joyful Morning Blooms" },
       { name: "description", content: "The story behind our small florist studio and the way we design." },
-      { property: "og:title", content: "About — Petal & Stem" },
+      { property: "og:title", content: "About — Joyful Morning Blooms" },
       { property: "og:description", content: "A small studio designing seasonal florals." },
     ],
   }),

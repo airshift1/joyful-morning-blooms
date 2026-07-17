@@ -13,7 +13,7 @@ import { fallbackImageFor } from "@/lib/product-assets";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
-    meta: [{ title: "Admin — Petal & Stem" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Admin — Joyful Morning Blooms" }, { name: "robots", content: "noindex" }],
   }),
   component: AdminGate,
 });

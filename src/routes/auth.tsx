@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Petal & Stem" },
+      { title: "Sign in — Joyful Morning Blooms" },
       { name: "description", content: "Sign in or create your account." },
       { name: "robots", content: "noindex" },
     ],

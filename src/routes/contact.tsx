@@ -16,9 +16,9 @@ const schema = z.object({
 export const Route = createFileRoute("/contact")({
   head: () => ({
     meta: [
-      { title: "Contact — Petal & Stem" },
+      { title: "Contact — Joyful Morning Blooms" },
       { name: "description", content: "Reach the studio with questions, custom requests, or wedding inquiries." },
-      { property: "og:title", content: "Contact — Petal & Stem" },
+      { property: "og:title", content: "Contact — Joyful Morning Blooms" },
       { property: "og:description", content: "Get in touch with our florists." },
     ],
   }),

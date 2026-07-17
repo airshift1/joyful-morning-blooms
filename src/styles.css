@@ -4,7 +4,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Petal & Stem — elegant editorial florist design system */
+/* Joyful Morning Blooms — elegant editorial florist design system */
 
 @theme inline {
   --font-display: "Cormorant Garamond", "Cormorant", "Playfair Display", ui-serif, Georgia, serif;

@@ -11,7 +11,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/order/$slug")({
   head: () => ({
-    meta: [{ title: "Place your order — Petal & Stem" }, { name: "robots", content: "noindex" }],
+    meta: [{ title: "Place your order — Joyful Morning Blooms" }, { name: "robots", content: "noindex" }],
   }),
   component: OrderForm,
 });
@@ -122,8 +122,13 @@ function OrderForm() {
       <div className="grid lg:grid-cols-[1fr_360px] gap-10">
         <form onSubmit={submit} className="space-y-10">
           <div>
-            <p className="eyebrow">Placing an order for</p>
+            <p className="eyebrow">Joyful Morning Blooms — Order form</p>
             <h1 className="mt-2 font-display text-4xl md:text-5xl">{product.name}</h1>
+            <p className="mt-4 text-muted-foreground max-w-2xl">
+              Thank you for ordering flowers from JMB. I thoughtfully grow my flowers from seeds and hand-plant,
+              pick and arrange them. I can't wait to get you your blooms! Please fill out the details below and
+              I'll confirm your date via email or text and set up a pickup or drop-off time.
+            </p>
           </div>
 
           {sizes.length > 0 && (
@@ -199,7 +204,11 @@ function OrderForm() {
 
           <section>
             <h2 className="font-display text-2xl mb-4">Special requests</h2>
-            <p className="text-sm text-muted-foreground mb-3">Colors, ribbon, card message, any custom instructions.</p>
+            <p className="text-sm text-muted-foreground mb-3">
+              Colors, ribbon, card message, custom instructions. If you selected a bulk order or event
+              arrangement, please describe what you're looking for in as much detail as possible — I'll
+              reach out with any questions and an estimate as soon as I can. Thank you!
+            </p>
             <textarea value={customDescription} onChange={(e) => setCustomDescription(e.target.value)} maxLength={2000}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-40" />
           </section>
