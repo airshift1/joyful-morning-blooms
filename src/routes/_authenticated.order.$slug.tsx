@@ -204,7 +204,11 @@ function OrderForm() {
 
           <section>
             <h2 className="font-display text-2xl mb-4">Special requests</h2>
-            <p className="text-sm text-muted-foreground mb-3">Colors, ribbon, card message, any custom instructions.</p>
+            <p className="text-sm text-muted-foreground mb-3">
+              Colors, ribbon, card message, custom instructions. If you selected a bulk order or event
+              arrangement, please describe what you're looking for in as much detail as possible — I'll
+              reach out with any questions and an estimate as soon as I can. Thank you!
+            </p>
             <textarea value={customDescription} onChange={(e) => setCustomDescription(e.target.value)} maxLength={2000}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-40" />
           </section>
