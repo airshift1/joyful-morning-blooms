@@ -122,8 +122,13 @@ function OrderForm() {
       <div className="grid lg:grid-cols-[1fr_360px] gap-10">
         <form onSubmit={submit} className="space-y-10">
           <div>
-            <p className="eyebrow">Placing an order for</p>
+            <p className="eyebrow">Joyful Morning Blooms — Order form</p>
             <h1 className="mt-2 font-display text-4xl md:text-5xl">{product.name}</h1>
+            <p className="mt-4 text-muted-foreground max-w-2xl">
+              Thank you for ordering flowers from JMB. I thoughtfully grow my flowers from seeds and hand-plant,
+              pick and arrange them. I can't wait to get you your blooms! Please fill out the details below and
+              I'll confirm your date via email or text and set up a pickup or drop-off time.
+            </p>
           </div>
 
           {sizes.length > 0 && (
