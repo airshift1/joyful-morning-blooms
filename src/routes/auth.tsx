@@ -41,7 +41,7 @@ function Auth() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email, password,
           options: {
             emailRedirectTo: window.location.origin,
@@ -49,10 +49,21 @@ function Auth() {
           },
         });
         if (error) throw error;
-        toast.success("Account created! Check your email to confirm.");
+        if (data.session) {
+          toast.success("Welcome! Account created.");
+        } else {
+          // sign in immediately (auto-confirm is on so this works even if signUp didn't return a session)
+          const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInErr) {
+            toast.success("Account created! Check your email to confirm, then sign in.");
+          } else {
+            toast.success("Welcome!");
+          }
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        toast.success("Signed in");
       }
     } catch (err: any) {
       toast.error(err.message ?? "Something went wrong");
