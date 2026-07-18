@@ -467,3 +467,56 @@ function UsersTab() {
   );
 }
 
+
+function CommentsTab() {
+  const { data: rows, refetch } = useQuery({
+    queryKey: ["admin-comments"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("comments")
+        .select("*, products(name)")
+        .order("created_at", { ascending: false });
+      return data ?? [];
+    },
+  });
+
+  async function setStatus(id: string, status: string) {
+    const { error } = await supabase.from("comments").update({ status }).eq("id", id);
+    if (error) toast.error(error.message); else refetch();
+  }
+  async function reply(id: string, current: string) {
+    const admin_reply = prompt("Your reply", current ?? "") ?? current;
+    const { error } = await supabase.from("comments").update({ admin_reply }).eq("id", id);
+    if (error) toast.error(error.message); else refetch();
+  }
+  async function del(id: string) {
+    if (!confirm("Delete comment?")) return;
+    const { error } = await supabase.from("comments").delete().eq("id", id);
+    if (error) toast.error(error.message); else refetch();
+  }
+
+  return (
+    <div className="py-6 space-y-3">
+      {(rows ?? []).length === 0 && <p className="text-muted-foreground">No comments yet.</p>}
+      {(rows ?? []).map((c: any) => (
+        <div key={c.id} className="rounded-lg border border-border bg-card p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm text-muted-foreground">
+                {c.products?.name} · {c.author_name} · <span className="px-2 py-0.5 rounded-full bg-secondary text-xs">{c.status}</span>
+              </p>
+              <p className="mt-2 whitespace-pre-line">{c.body}</p>
+              {c.admin_reply && <p className="mt-2 text-sm text-muted-foreground">Reply: {c.admin_reply}</p>}
+            </div>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <Button size="sm" variant="outline" onClick={() => setStatus(c.id, "approved")}>Approve</Button>
+              <Button size="sm" variant="outline" onClick={() => setStatus(c.id, "hidden")}>Hide</Button>
+              <Button size="sm" variant="outline" onClick={() => reply(c.id, c.admin_reply)}>Reply</Button>
+              <Button size="sm" variant="destructive" onClick={() => del(c.id)}>Delete</Button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
