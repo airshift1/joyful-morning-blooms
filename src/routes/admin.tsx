@@ -52,6 +52,7 @@ function AdminDashboard() {
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
+          <TabsTrigger value="comments">Comments</TabsTrigger>
           <TabsTrigger value="content">Pages</TabsTrigger>
           <TabsTrigger value="branding">Branding</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
@@ -60,6 +61,7 @@ function AdminDashboard() {
         <TabsContent value="orders"><OrdersTab /></TabsContent>
         <TabsContent value="products"><ProductsTab /></TabsContent>
         <TabsContent value="reviews"><ReviewsTab /></TabsContent>
+        <TabsContent value="comments"><CommentsTab /></TabsContent>
         <TabsContent value="content"><ContentTab /></TabsContent>
         <TabsContent value="branding"><BrandingTab /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
@@ -71,6 +73,7 @@ function AdminDashboard() {
 }
 
 function OrdersTab() {
+  const [showArchived, setShowArchived] = useState(false);
   const { data: orders, refetch } = useQuery({
     queryKey: ["admin-orders"],
     queryFn: async () => {
@@ -84,10 +87,21 @@ function OrdersTab() {
     if (error) toast.error(error.message); else { toast.success("Updated"); refetch(); }
   }
 
+  const archived = (orders ?? []).filter((o: any) => o.status === "completed" || o.status === "cancelled" || o.status === "rejected");
+  const active = (orders ?? []).filter((o: any) => !(o.status === "completed" || o.status === "cancelled" || o.status === "rejected"));
+  const list = showArchived ? archived : active;
+
   return (
     <div className="space-y-4 py-6">
-      {(orders ?? []).length === 0 && <p className="text-muted-foreground">No orders yet.</p>}
-      {(orders ?? []).map((o: any) => (
+      <div className="flex items-center gap-3">
+        <label className="flex items-center gap-2 text-sm">
+          <Switch checked={showArchived} onCheckedChange={setShowArchived} />
+          Show archived ({archived.length})
+        </label>
+        <span className="text-sm text-muted-foreground">· Active: {active.length}</span>
+      </div>
+      {list.length === 0 && <p className="text-muted-foreground">{showArchived ? "No archived orders." : "No active orders."}</p>}
+      {list.map((o: any) => (
         <div key={o.id} className="rounded-lg border border-border bg-card p-6">
           <div className="flex flex-wrap items-start gap-6 justify-between">
             <div>

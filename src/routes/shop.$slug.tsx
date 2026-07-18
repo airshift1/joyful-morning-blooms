@@ -9,6 +9,7 @@ import { Star } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
+import { ProductComments } from "@/components/product-comments";
 
 export const Route = createFileRoute("/shop/$slug")({
   head: ({ params }) => ({
@@ -145,6 +146,8 @@ function ProductDetail() {
           </p>
         )}
       </section>
+
+      <ProductComments productId={product.id} />
     </div>
   );
 }
