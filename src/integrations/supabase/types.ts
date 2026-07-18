@@ -14,6 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
+      comments: {
+        Row: {
+          admin_reply: string | null
+          author_name: string
+          body: string
+          created_at: string
+          id: string
+          product_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_reply?: string | null
+          author_name: string
+          body: string
+          created_at?: string
+          id?: string
+          product_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_reply?: string | null
+          author_name?: string
+          body?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       orders: {
         Row: {
           admin_notes: string

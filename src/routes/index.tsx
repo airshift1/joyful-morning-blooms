@@ -42,6 +42,24 @@ function Home() {
       return data ?? [];
     },
   });
+  const { data: settings } = useQuery({
+    queryKey: ["home-settings"],
+    queryFn: async () => {
+      const { data } = await supabase.from("site_settings").select("key, value");
+      const m: Record<string, any> = {};
+      (data ?? []).forEach((r: any) => { m[r.key] = r.value; });
+      return m;
+    },
+  });
+  const { data: subContent } = useQuery({
+    queryKey: ["site_content", "subscription"],
+    queryFn: async () => {
+      const { data } = await supabase.from("site_content").select("value").eq("key", "subscription").maybeSingle();
+      return (data?.value ?? {}) as Record<string, string>;
+    },
+  });
+  const features = (settings?.features ?? {}) as Record<string, boolean>;
+  const subscriptionOn = features.monthly_subscription === true;
 
   const c = content ?? {};
 
@@ -145,6 +163,22 @@ function Home() {
           </div>
         </div>
       </section>
+
+      {subscriptionOn && (
+        <section className="container-editorial py-16 md:py-24 border-t border-border/60">
+          <div className="rounded-2xl bg-secondary/40 p-10 md:p-16 text-center">
+            <p className="eyebrow">Monthly ritual</p>
+            <h2 className="mt-2 font-display text-4xl md:text-5xl">{subContent?.title ?? "Monthly flower subscription"}</h2>
+            <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
+              {subContent?.body ?? "A fresh, seasonal bouquet every month."}
+            </p>
+            {subContent?.price && <p className="mt-4 font-display text-2xl">{subContent.price}</p>}
+            <div className="mt-8">
+              <Button asChild size="lg"><Link to="/contact">{subContent?.cta ?? "Subscribe"}</Link></Button>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
