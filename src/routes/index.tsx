@@ -140,29 +140,6 @@ function Home() {
         </div>
       </section>
 
-      {/* Story */}
-      <section className="container-editorial py-16 md:py-24 border-t border-border/60">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
-          <img
-            src={storyImg}
-            alt="A florist tying a bouquet"
-            loading="lazy"
-            width={1200}
-            height={1200}
-            className="w-full aspect-square object-cover rounded-lg"
-          />
-          <div>
-            <p className="eyebrow">Our studio</p>
-            <h2 className="mt-2 font-display text-4xl md:text-5xl">{c.story_title ?? "A small studio, big on details"}</h2>
-            <p className="mt-6 text-lg text-muted-foreground leading-relaxed">
-              {c.story_body ?? "We source from local growers and design each piece as if it were for our own table."}
-            </p>
-            <div className="mt-8">
-              <Button asChild variant="outline"><Link to="/about">More about us</Link></Button>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {subscriptionOn && (
         <section className="container-editorial py-16 md:py-24 border-t border-border/60">
