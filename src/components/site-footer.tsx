@@ -46,9 +46,14 @@ export function SiteFooter() {
           </ul>
         </div>
         <div>
-          <p className="eyebrow mb-3">Studio</p>
-          <p className="text-sm text-muted-foreground">Tue–Sat  ·  10a–6p</p>
-          <p className="text-sm text-muted-foreground">By appointment for weddings.</p>
+          <p className="eyebrow mb-3">Follow</p>
+          {insta ? (
+            <a href={insta} target="_blank" rel="noopener noreferrer" className="text-sm text-foreground/80 hover:text-foreground inline-flex items-center gap-2">
+              <Instagram className="h-4 w-4" /> Instagram
+            </a>
+          ) : (
+            <p className="text-sm text-muted-foreground">Add your Instagram link in Admin → Branding.</p>
+          )}
         </div>
       </div>
       <div className="border-t border-border/60">
