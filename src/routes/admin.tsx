@@ -520,3 +520,150 @@ function CommentsTab() {
     </div>
   );
 }
+
+function SettingsTab() {
+  const [squareAppId, setSquareAppId] = useState("");
+  const [squareAccessToken, setSquareAccessToken] = useState("");
+  const [squareLocationId, setSquareLocationId] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+
+  async function handleSaveSquareSettings() {
+    setIsSaving(true);
+    try {
+      if (!squareAppId || !squareAccessToken || !squareLocationId) {
+        toast.error("Please fill in all Square fields");
+        setIsSaving(false);
+        return;
+      }
+
+      const { error } = await supabase.from("admin_settings").upsert({
+        id: "square",
+        setting_key: "square_credentials",
+        setting_value: {
+          app_id: squareAppId,
+          access_token: squareAccessToken,
+          location_id: squareLocationId,
+        },
+      });
+
+      if (error) throw error;
+      toast.success("Square credentials saved!");
+      setIsConnected(true);
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to save Square credentials");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDisconnectSquare() {
+    if (!confirm("Are you sure? This will disconnect Square.")) return;
+    try {
+      const { error } = await supabase.from("admin_settings").delete().eq("id", "square");
+      if (error) throw error;
+      setSquareAppId("");
+      setSquareAccessToken("");
+      setSquareLocationId("");
+      setIsConnected(false);
+      toast.success("Square disconnected");
+    } catch (err: any) {
+      toast.error(err.message ?? "Failed to disconnect Square");
+    }
+  }
+
+  return (
+    <div className="py-6 max-w-2xl">
+      <div className="space-y-8">
+        {/* Square Settings */}
+        <div className="rounded-lg border border-border bg-card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-lg">Square Payment Settings</h3>
+              <p className="text-sm text-muted-foreground mt-1">Connect your Square account to accept payments</p>
+            </div>
+            {isConnected && (
+              <div className="px-3 py-1 rounded-full bg-green-100 text-green-800 text-xs font-medium">
+                Connected
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Square Application ID</label>
+              <input
+                type="text"
+                placeholder="sq0atp-XXXXXXXXXXXXXXXX"
+                value={squareAppId}
+                onChange={(e) => setSquareAppId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Find this in Square Dashboard → Developer → Applications
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Square Access Token</label>
+              <input
+                type="password"
+                placeholder="sq0atp-XXXXXXXXXXXXXXXX"
+                value={squareAccessToken}
+                onChange={(e) => setSquareAccessToken(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Get your API key from Square Developer credentials
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Square Location ID</label>
+              <input
+                type="text"
+                placeholder="L123456789"
+                value={squareLocationId}
+                onChange={(e) => setSquareLocationId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Find this in Square Dashboard → Settings → Locations
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button
+                onClick={handleSaveSquareSettings}
+                disabled={isSaving}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                {isSaving ? "Saving..." : "Connect with Square"}
+              </Button>
+              {isConnected && (
+                <Button
+                  onClick={handleDisconnectSquare}
+                  variant="destructive"
+                >
+                  Disconnect
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Help section */}
+        <div className="rounded-lg border border-border bg-card p-6">
+          <h3 className="font-semibold text-lg mb-4">How to get your Square credentials</h3>
+          <ol className="space-y-3 text-sm text-muted-foreground">
+            <li>1. Go to <a href="https://squareup.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">squareup.com</a></li>
+            <li>2. Sign in to your merchant account</li>
+            <li>3. Go to Developer → Applications</li>
+            <li>4. Copy your Application ID and Access Token (API Key)</li>
+            <li>5. Paste them above and click "Connect with Square"</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  );
+}
