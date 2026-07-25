@@ -471,13 +471,22 @@ function BrandingTab() {
 }
 
 function UsersTab() {
+  const [query, setQuery] = useState("");
   const { data: rows, refetch } = useQuery({
-    queryKey: ["admin-users"],
+    queryKey: ["admin-users", query],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, email, full_name, user_roles(role)")
-        .order("email");
+      let q = supabase.from("profiles").select("id, email, full_name, birthdate, user_roles(role)").order("email");
+      if (query && query.trim()) {
+        const like = `%${query.trim().toLowerCase()}%`;
+        // PostgREST ilike usage via supabase client
+        const { data } = await supabase.rpc('search_profiles', { q: query.trim() }).then(r => r.data).catch(async () => {
+          // fallback: fetch all and filter client-side
+          const { data } = await q;
+          return data ?? [];
+        });
+        return data ?? [];
+      }
+      const { data } = await q;
       return data ?? [];
     },
   });
@@ -494,26 +503,40 @@ function UsersTab() {
     refetch();
   }
 
+  const list = rows ?? [];
+
   return (
     <div className="py-6 space-y-3">
-      <p className="text-sm text-muted-foreground">Promote another account to admin, or remove admin access.</p>
-      {(rows ?? []).map((u: any) => {
-        const isAdmin = (u.user_roles ?? []).some((r: any) => r.role === "admin");
-        return (
-          <div key={u.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-            <div>
-              <p className="font-medium">{u.full_name || "(no name)"} {u.birthdate && <span className="text-sm text-muted-foreground">· Born {new Date(u.birthdate).toLocaleDateString()}</span>}</p>
-              <p className="text-sm text-muted-foreground">{u.email}</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-muted-foreground">Promote accounts to admin, or remove admin access.</p>
+          <p className="mt-1 text-sm">Total users: <strong>{list.length}</strong></p>
+        </div>
+        <div className="flex items-center gap-2">
+          <input placeholder="Search by name or email" value={query} onChange={(e) => setQuery(e.target.value)} className="rounded-md border border-input px-3 py-2 text-sm" />
+          <Button size="sm" onClick={() => refetch()}>Search</Button>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {list.map((u: any) => {
+          const isAdmin = (u.user_roles ?? []).some((r: any) => r.role === "admin");
+          return (
+            <div key={u.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+              <div>
+                <p className="font-medium">{u.full_name || "(no name)"} {u.birthdate && <span className="text-sm text-muted-foreground">· Born {new Date(u.birthdate).toLocaleDateString()}</span>}</p>
+                <p className="text-sm text-muted-foreground">{u.email}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {isAdmin && <span className="px-2 py-0.5 rounded-full text-xs bg-accent text-accent-foreground">Admin</span>}
+                <Button size="sm" variant={isAdmin ? "outline" : "default"} onClick={() => toggleAdmin(u.id, !isAdmin)}>
+                  {isAdmin ? "Remove admin" : "Make admin"}
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              {isAdmin && <span className="px-2 py-0.5 rounded-full text-xs bg-accent text-accent-foreground">Admin</span>}
-              <Button size="sm" variant={isAdmin ? "outline" : "default"} onClick={() => toggleAdmin(u.id, !isAdmin)}>
-                {isAdmin ? "Remove admin" : "Make admin"}
-              </Button>
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
