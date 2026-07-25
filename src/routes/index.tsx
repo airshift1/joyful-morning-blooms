@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import heroImg from "@/assets/hero-bouquet.jpg";
 import storyImg from "@/assets/story-image.jpg";
+import AuthEditLink from "@/components/AuthEditLink";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -86,6 +87,9 @@ function Home() {
               <Button asChild size="lg" variant="outline">
                 <Link to="/about">Our story</Link>
               </Button>
+
+              {/* Edit home page link for owner/admin */}
+              <AuthEditLink />
             </div>
           </div>
           <div className="relative">
