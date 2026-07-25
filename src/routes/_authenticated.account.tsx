@@ -59,8 +59,9 @@ function Account() {
         </div>
       </section>
 
-      <section className="mt-16">
+      <section className="mt-12 flex items-center gap-3">
         <Button variant="outline" onClick={() => supabase.auth.signOut()}>Sign out</Button>
+        <Button asChild variant="outline"><Link to="/_authenticated/account/edit">Edit profile</Link></Button>
       </section>
     </div>
   );

@@ -502,7 +502,7 @@ function UsersTab() {
         return (
           <div key={u.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
             <div>
-              <p className="font-medium">{u.full_name || "(no name)"}</p>
+              <p className="font-medium">{u.full_name || "(no name)"} {u.birthdate && <span className="text-sm text-muted-foreground">· Born {new Date(u.birthdate).toLocaleDateString()}</span>}</p>
               <p className="text-sm text-muted-foreground">{u.email}</p>
             </div>
             <div className="flex items-center gap-2">
