@@ -45,11 +45,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const ownerEmail = import.meta.env.VITE_OWNER_EMAIL?.toLowerCase?.() ?? "joyfulmorningblooms@gmail.com";
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, email, full_name, phone, birthdate, user_roles(role)")
+        .select("id, email, full_name, phone, birthdate")
         .eq("id", userId)
         .maybeSingle();
 
       if (error) throw error;
+
+      const { data: roleRows, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId);
 
       const profileData: Profile = {
         full_name: data?.full_name ?? null,
@@ -60,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(profileData);
 
       const isOwner = !!email && email.toLowerCase() === ownerEmail;
-      const hasAdminRole = !!data?.user_roles?.some((role: any) => role?.role === "admin");
+      const hasAdminRole = !roleError && Array.isArray(roleRows) && roleRows.some((role: any) => role?.role === "admin");
       setIsAdmin(isOwner || hasAdminRole);
     } catch (err) {
       console.warn("Load auth extras failed:", err);

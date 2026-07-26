@@ -880,7 +880,7 @@ function UsersTab() {
       try {
         let queryBuilder = supabase
           .from("profiles")
-          .select("id, email, full_name, birthdate, user_roles(role)")
+          .select("id, email, full_name, birthdate")
           .order("email", { ascending: true });
 
         if (query && query.trim()) {
@@ -888,11 +888,32 @@ function UsersTab() {
           queryBuilder = queryBuilder.or(`email.ilike.%${search}%,full_name.ilike.%${search}%`);
         }
 
-        const { data, error } = await queryBuilder;
-        if (error) throw error;
-        return (data ?? []).map((row: any) => ({
+        const { data: profiles, error: profileError } = await queryBuilder;
+        if (profileError) throw profileError;
+        const profileRows = profiles ?? [];
+        const userIds = profileRows.map((row: any) => row.id).filter(Boolean);
+
+        let roleRows: any[] = [];
+        if (userIds.length > 0) {
+          const { data: fetchedRoles, error: roleError } = await supabase
+            .from("user_roles")
+            .select("user_id, role")
+            .in("user_id", userIds);
+          if (!roleError && Array.isArray(fetchedRoles)) {
+            roleRows = fetchedRoles;
+          }
+        }
+
+        const roleMap: Record<string, any[]> = {};
+        roleRows.forEach((role: any) => {
+          if (!role.user_id) return;
+          roleMap[role.user_id] = [...(roleMap[role.user_id] ?? []), role];
+        });
+
+        return profileRows.map((row: any) => ({
           ...row,
           email: row.email ?? "No email",
+          user_roles: roleMap[row.id] ?? [],
         }));
       } catch (err) {
         console.error("Error loading admin users:", err);
