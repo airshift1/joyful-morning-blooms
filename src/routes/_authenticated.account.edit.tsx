@@ -44,7 +44,7 @@ function EditProfile() {
       const { error } = await supabase.from("profiles").upsert({ id: user.id, full_name: fullName, phone, birthdate }, { onConflict: ["id"] });
       if (error) throw error;
       toast.success("Profile updated");
-      navigate({ to: "/_authenticated/account" } as any);
+      navigate({ to: "/account" } as any);
     } catch (err: any) {
       toast.error(err.message ?? "Failed to save profile");
     } finally {
@@ -69,9 +69,9 @@ function EditProfile() {
           <input type="date" value={birthdate ?? ""} onChange={(e) => setBirthdate(e.target.value)} className="w-full rounded-md border border-input px-3 py-2 text-sm" />
           <p className="text-xs text-muted-foreground mt-1">Optional — used for birthday notes and gift suggestions.</p>
         </div>
-        <div className="flex gap-2 mt-4">
+       <div className="flex gap-2 mt-4">
           <Button onClick={save} disabled={saving}>{saving ? "Saving..." : "Save changes"}</Button>
-          <Button variant="outline" onClick={() => navigate({ to: "/_authenticated/account" } as any)}>Cancel</Button>
+          <Button variant="outline" onClick={() => navigate({ to: "/account" } as any)}>Cancel</Button>
         </div>
       </div>
     </div>

@@ -692,22 +692,45 @@ function BrandingTab() {
 
 function UsersTab() {
   const [query, setQuery] = useState("");
-  const { data: rows, refetch } = useQuery({
+  const { data: rows, refetch, isLoading } = useQuery({
     queryKey: ["admin-users", query],
     queryFn: async () => {
-      let q = supabase.from("profiles").select("id, email, full_name, birthdate, user_roles(role)").order("email");
-      if (query && query.trim()) {
-        const like = `%${query.trim().toLowerCase()}%`;
-        // PostgREST ilike usage via supabase client
-        const { data } = await supabase.rpc('search_profiles', { q: query.trim() }).then(r => r.data).catch(async () => {
-          // fallback: fetch all and filter client-side
-          const { data } = await q;
-          return data ?? [];
+      try {
+        // Get profiles and their corresponding emails from auth.users via a simple fetch
+        const { data: profiles, error } = await supabase
+          .from("profiles")
+          .select("id, full_name, birthdate, user_roles(role)")
+          .order("full_name");
+        
+        if (error) throw error;
+        
+        if (!profiles || profiles.length === 0) return [];
+
+        // Get emails for all user IDs
+        const { data: authUsers, error: authError } = await supabase
+          .from("auth.users")
+          .select("id, email")
+          .in("id", profiles.map(p => p.id));
+
+        if (authError) {
+          // Fallback: just use profiles without emails
+          return profiles.map(p => ({ ...p, email: "N/A" }));
+        }
+
+        // Merge emails with profiles
+        const emailMap = new Map(authUsers?.map(u => [u.id, u.email]) ?? []);
+        return profiles.map(p => ({
+          ...p,
+          email: emailMap.get(p.id) ?? "N/A"
+        })).filter(p => {
+          if (!query.trim()) return true;
+          const q = query.trim().toLowerCase();
+          return (p.full_name?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q));
         });
-        return data ?? [];
+      } catch (err) {
+        console.error("Error loading users:", err);
+        return [];
       }
-      const { data } = await q;
-      return data ?? [];
     },
   });
 
@@ -752,11 +775,13 @@ function UsersTab() {
         </div>
       </div>
 
-      <div className="space-y-3">
-        {list.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">No users found</p>
-        ) : (
-          list.map((u: any) => {
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground text-center py-6">Loading users...</p>
+      ) : list.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-6">No users found</p>
+      ) : (
+        <div className="space-y-3">
+          {list.map((u: any) => {
             const isAdmin = (u.user_roles ?? []).some((r: any) => r.role === "admin");
             return (
               <div key={u.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
@@ -772,9 +797,9 @@ function UsersTab() {
                 </div>
               </div>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   );
 }
