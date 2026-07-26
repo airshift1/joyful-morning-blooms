@@ -53,7 +53,8 @@ function AdminDashboard() {
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
           <TabsTrigger value="comments">Comments</TabsTrigger>
-          <TabsTrigger value="content">Pages</TabsTrigger>
+          <TabsTrigger value="pages">Pages</TabsTrigger>
+          <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="branding">Branding</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -62,6 +63,7 @@ function AdminDashboard() {
         <TabsContent value="products"><ProductsTab /></TabsContent>
         <TabsContent value="reviews"><ReviewsTab /></TabsContent>
         <TabsContent value="comments"><CommentsTab /></TabsContent>
+        <TabsContent value="pages"><PagesTab /></TabsContent>
         <TabsContent value="content"><ContentTab /></TabsContent>
         <TabsContent value="branding"><BrandingTab /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
@@ -278,6 +280,103 @@ function ContentTab() {
       {(rows ?? []).map((r: any) => (
         <ContentEditor key={r.key} row={r} onSaved={refetch} />
       ))}
+    </div>
+  );
+}
+
+function PagesTab() {
+  const [editing, setEditing] = useState<string | null>(null);
+  const { data: pages, refetch } = useQuery({
+    queryKey: ["admin-pages"],
+    queryFn: async () => {
+      const { data } = await supabase.from("pages").select("*").order("slug");
+      return data ?? [];
+    },
+  });
+
+  async function updatePage(id: string, updates: any) {
+    const { error } = await supabase.from("pages").update(updates).eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Saved"); refetch(); }
+  }
+
+  return (
+    <div className="py-6 space-y-6">
+      <p className="text-sm text-muted-foreground">Edit any page content, background color, and images without touching code.</p>
+      {(pages ?? []).map((page: any) => (
+        <PageEditor key={page.id} page={page} isEditing={editing === page.id} onEdit={() => setEditing(page.id)} onClose={() => setEditing(null)} onSave={(updates) => updatePage(page.id, updates)} />
+      ))}
+    </div>
+  );
+}
+
+function PageEditor({ page, isEditing, onEdit, onClose, onSave }: any) {
+  const [title, setTitle] = useState(page.title);
+  const [subtitle, setSubtitle] = useState(page.subtitle);
+  const [content, setContent] = useState(page.content);
+  const [bgColor, setBgColor] = useState(page.background_color);
+  const [bgImage, setBgImage] = useState(page.background_image_url);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    await onSave({ title, subtitle, content, background_color: bgColor, background_image_url: bgImage });
+    setSaving(false);
+    onClose();
+  }
+
+  async function uploadImage(file: File) {
+    if (!file) return;
+    const path = `page-${page.slug}-${Date.now()}`;
+    const { error: uploadError } = await supabase.storage.from("images").upload(path, file);
+    if (uploadError) { toast.error(uploadError.message); return; }
+    const { data } = supabase.storage.from("images").getPublicUrl(path);
+    setBgImage(data.publicUrl);
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-5">
+      {!isEditing ? (
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="font-display text-2xl">{page.title}</p>
+            {page.subtitle && <p className="text-sm text-muted-foreground mt-1">{page.subtitle}</p>}
+            {page.background_color && <p className="text-xs text-muted-foreground mt-2">BG Color: {page.background_color}</p>}
+          </div>
+          <Button size="sm" variant="outline" onClick={onEdit}>Edit</Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Page Title</label>
+            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Subtitle</label>
+            <input type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Content</label>
+            <textarea value={content} onChange={(e) => setContent(e.target.value)} className="w-full min-h-32 rounded-md border border-input bg-background px-3 py-2" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Background Color</label>
+            <div className="flex gap-2 items-center">
+              <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="h-10 w-20 rounded cursor-pointer border border-input" />
+              <input type="text" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="#ffffff" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Background Image</label>
+            {bgImage && <p className="text-xs text-muted-foreground mb-2">Current: <a href={bgImage} target="_blank" rel="noopener noreferrer" className="underline">View image</a></p>}
+            <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0])} className="text-sm" />
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
+            <Button size="sm" variant="outline" onClick={onClose}>Cancel</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -504,38 +603,56 @@ function UsersTab() {
   }
 
   const list = rows ?? [];
+  const admins = list.filter((u: any) => (u.user_roles ?? []).some((r: any) => r.role === "admin"));
+  const regularUsers = list.length - admins.length;
 
   return (
-    <div className="py-6 space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">Promote accounts to admin, or remove admin access.</p>
-          <p className="mt-1 text-sm">Total users: <strong>{list.length}</strong></p>
+    <div className="py-6 space-y-4">
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Total Users</p>
+          <p className="text-2xl font-display mt-1">{list.length}</p>
         </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Admins</p>
+          <p className="text-2xl font-display mt-1">{admins.length}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Regular Users</p>
+          <p className="text-2xl font-display mt-1">{regularUsers}</p>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-4">
+        <p className="text-sm text-muted-foreground mb-3">Promote accounts to admin, or remove admin access.</p>
         <div className="flex items-center gap-2">
-          <input placeholder="Search by name or email" value={query} onChange={(e) => setQuery(e.target.value)} className="rounded-md border border-input px-3 py-2 text-sm" />
+          <input placeholder="Search by name or email" value={query} onChange={(e) => setQuery(e.target.value)} className="flex-1 rounded-md border border-input px-3 py-2 text-sm" />
           <Button size="sm" onClick={() => refetch()}>Search</Button>
         </div>
       </div>
 
       <div className="space-y-3">
-        {list.map((u: any) => {
-          const isAdmin = (u.user_roles ?? []).some((r: any) => r.role === "admin");
-          return (
-            <div key={u.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-              <div>
-                <p className="font-medium">{u.full_name || "(no name)"} {u.birthdate && <span className="text-sm text-muted-foreground">· Born {new Date(u.birthdate).toLocaleDateString()}</span>}</p>
-                <p className="text-sm text-muted-foreground">{u.email}</p>
+        {list.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">No users found</p>
+        ) : (
+          list.map((u: any) => {
+            const isAdmin = (u.user_roles ?? []).some((r: any) => r.role === "admin");
+            return (
+              <div key={u.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
+                <div>
+                  <p className="font-medium">{u.full_name || "(no name)"} {u.birthdate && <span className="text-sm text-muted-foreground">· Born {new Date(u.birthdate).toLocaleDateString()}</span>}</p>
+                  <p className="text-sm text-muted-foreground">{u.email}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isAdmin && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-accent text-accent-foreground">Admin</span>}
+                  <Button size="sm" variant={isAdmin ? "outline" : "default"} onClick={() => toggleAdmin(u.id, !isAdmin)}>
+                    {isAdmin ? "Remove admin" : "Make admin"}
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {isAdmin && <span className="px-2 py-0.5 rounded-full text-xs bg-accent text-accent-foreground">Admin</span>}
-                <Button size="sm" variant={isAdmin ? "outline" : "default"} onClick={() => toggleAdmin(u.id, !isAdmin)}>
-                  {isAdmin ? "Remove admin" : "Make admin"}
-                </Button>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
     </div>
   );
