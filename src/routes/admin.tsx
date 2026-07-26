@@ -286,7 +286,6 @@ function ContentTab() {
 
 function PagesTab() {
   const [editing, setEditing] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const { data: pages, refetch, isLoading } = useQuery({
     queryKey: ["admin-pages"],
     queryFn: async () => {
@@ -336,17 +335,29 @@ function PagesTab() {
     );
   }
 
+  const pageList = pages ?? [];
+
   return (
     <div className="py-6 space-y-6">
-      <p className="text-sm text-muted-foreground">Edit any page content, background color, and images without touching code.</p>
-      {(pages ?? []).map((page: any) => (
-        <PageEditor key={page.id} page={page} isEditing={editing === page.id} onEdit={() => setEditing(page.id)} onClose={() => setEditing(null)} onSave={(updates) => updatePage(page.id, updates)} />
-      ))}
+      <div className="rounded-lg border border-border bg-card p-6">
+        <h2 className="font-display text-2xl mb-2">Website Pages</h2>
+        <p className="text-sm text-muted-foreground">Edit any page without touching code. Click a page below to start editing.</p>
+      </div>
+
+      {pageList.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">No pages found</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {pageList.map((page: any) => (
+            <PageCard key={page.id} page={page} isEditing={editing === page.id} onEdit={() => setEditing(page.id)} onClose={() => setEditing(null)} onSave={(updates) => { updatePage(page.id, updates); setEditing(null); }} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function PageEditor({ page, isEditing, onEdit, onClose, onSave }: any) {
+function PageCard({ page, isEditing, onEdit, onClose, onSave }: any) {
   const [title, setTitle] = useState(page.title);
   const [subtitle, setSubtitle] = useState(page.subtitle);
   const [content, setContent] = useState(page.content);
@@ -358,7 +369,6 @@ function PageEditor({ page, isEditing, onEdit, onClose, onSave }: any) {
     setSaving(true);
     await onSave({ title, subtitle, content, background_color: bgColor, background_image_url: bgImage });
     setSaving(false);
-    onClose();
   }
 
   async function uploadImage(file: File) {
@@ -370,49 +380,124 @@ function PageEditor({ page, isEditing, onEdit, onClose, onSave }: any) {
     setBgImage(data.publicUrl);
   }
 
-  return (
-    <div className="rounded-lg border border-border bg-card p-5">
-      {!isEditing ? (
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="font-display text-2xl">{page.title}</p>
-            {page.subtitle && <p className="text-sm text-muted-foreground mt-1">{page.subtitle}</p>}
-            {page.background_color && <p className="text-xs text-muted-foreground mt-2">BG Color: {page.background_color}</p>}
+  if (!isEditing) {
+    return (
+      <div className="rounded-lg border border-border bg-card p-6 hover:border-border/80 transition-colors">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="flex-1">
+            <h3 className="font-display text-xl mb-1">{page.title}</h3>
+            {page.subtitle && <p className="text-sm text-muted-foreground">{page.subtitle}</p>}
           </div>
-          <Button size="sm" variant="outline" onClick={onEdit}>Edit</Button>
+          <span className="px-2 py-1 rounded text-xs bg-secondary text-secondary-foreground">{page.slug}</span>
         </div>
-      ) : (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Page Title</label>
-            <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2" />
+        
+        {page.content && (
+          <p className="text-sm text-foreground/70 mb-3 line-clamp-2">{page.content}</p>
+        )}
+
+        <div className="flex items-center justify-between pt-3 border-t border-border/40">
+          <div className="flex items-center gap-2">
+            {page.background_color && (
+              <div className="flex items-center gap-2">
+                <div className="h-6 w-6 rounded border border-border" style={{ backgroundColor: page.background_color }}></div>
+                <span className="text-xs text-muted-foreground">{page.background_color}</span>
+              </div>
+            )}
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Subtitle</label>
-            <input type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Content</label>
-            <textarea value={content} onChange={(e) => setContent(e.target.value)} className="w-full min-h-32 rounded-md border border-input bg-background px-3 py-2" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Background Color</label>
-            <div className="flex gap-2 items-center">
-              <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="h-10 w-20 rounded cursor-pointer border border-input" />
-              <input type="text" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="#ffffff" />
+          <Button size="sm" onClick={onEdit}>Edit Page</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="col-span-1 md:col-span-2 rounded-lg border border-border bg-card p-6">
+      <h3 className="font-display text-2xl mb-6">Editing: {page.title}</h3>
+      
+      <div className="space-y-5 max-w-2xl">
+        <div>
+          <label className="block text-sm font-semibold mb-2">Page Title</label>
+          <input 
+            type="text" 
+            value={title} 
+            onChange={(e) => setTitle(e.target.value)} 
+            className="w-full rounded-md border border-input bg-background px-4 py-2.5 text-base"
+            placeholder="Enter page title"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-2">Subtitle (optional)</label>
+          <input 
+            type="text" 
+            value={subtitle} 
+            onChange={(e) => setSubtitle(e.target.value)} 
+            className="w-full rounded-md border border-input bg-background px-4 py-2.5 text-base"
+            placeholder="Enter page subtitle"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold mb-2">Page Content</label>
+          <textarea 
+            value={content} 
+            onChange={(e) => setContent(e.target.value)} 
+            className="w-full min-h-40 rounded-md border border-input bg-background px-4 py-2.5 text-base resize-none"
+            placeholder="Enter page content here..."
+          />
+        </div>
+
+        <div className="rounded-lg bg-secondary/20 p-4 border border-border/40">
+          <h4 className="font-semibold text-sm mb-3">Background Settings</h4>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Background Color</label>
+              <div className="flex gap-3 items-center">
+                <input 
+                  type="color" 
+                  value={bgColor} 
+                  onChange={(e) => setBgColor(e.target.value)} 
+                  className="h-12 w-20 rounded cursor-pointer border border-input"
+                />
+                <input 
+                  type="text" 
+                  value={bgColor} 
+                  onChange={(e) => setBgColor(e.target.value)} 
+                  className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
+                  placeholder="#ffffff"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Background Image</label>
+              {bgImage && (
+                <div className="mb-3 p-3 rounded-lg bg-background border border-border/40">
+                  <p className="text-xs text-muted-foreground mb-2">Current image:</p>
+                  <img src={bgImage} alt="Background preview" className="max-h-32 rounded object-cover" />
+                  <a href={bgImage} target="_blank" rel="noopener noreferrer" className="text-xs underline text-primary mt-2 inline-block">View full image</a>
+                </div>
+              )}
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0])} 
+                className="text-sm"
+              />
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Background Image</label>
-            {bgImage && <p className="text-xs text-muted-foreground mb-2">Current: <a href={bgImage} target="_blank" rel="noopener noreferrer" className="underline">View image</a></p>}
-            <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0])} className="text-sm" />
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={save} disabled={saving}>{saving ? "Saving..." : "Save"}</Button>
-            <Button size="sm" variant="outline" onClick={onClose}>Cancel</Button>
-          </div>
         </div>
-      )}
+
+        <div className="flex gap-3 pt-4">
+          <Button size="lg" onClick={save} disabled={saving} className="flex-1">
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+          <Button size="lg" variant="outline" onClick={onClose} className="flex-1">
+            Cancel
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
