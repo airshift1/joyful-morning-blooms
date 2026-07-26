@@ -306,6 +306,30 @@ function PagesTab() {
     },
   });
 
+  async function addPage() {
+    const slug = prompt("Slug for the new page (e.g. 'home', 'about', 'contact')")?.trim();
+    if (!slug) return;
+    const title = prompt("Page title", slug) ?? slug;
+    const id = crypto.randomUUID();
+    const { error } = await supabase.from("pages").insert({
+      id,
+      slug,
+      title,
+      subtitle: "",
+      content: "",
+      background_color: "#ffffff",
+      background_image_url: null,
+      is_published: true,
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Page created");
+    refetch();
+    setEditing(id);
+  }
+
   async function updatePage(id: string, updates: any) {
     const { error } = await supabase.from("pages").update(updates).eq("id", id);
     if (error) toast.error(error.message);
@@ -339,9 +363,12 @@ function PagesTab() {
 
   return (
     <div className="py-6 space-y-6">
-      <div className="rounded-lg border border-border bg-card p-6">
-        <h2 className="font-display text-2xl mb-2">Website Pages</h2>
-        <p className="text-sm text-muted-foreground">Edit any page without touching code. Click a page below to start editing.</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 rounded-lg border border-border bg-card p-6">
+        <div>
+          <h2 className="font-display text-2xl mb-2">Website Pages</h2>
+          <p className="text-sm text-muted-foreground">Edit any page without touching code. Click a page below to start editing.</p>
+        </div>
+        <Button onClick={addPage}>+ Add page</Button>
       </div>
 
       {pageList.length === 0 ? (
@@ -691,44 +718,30 @@ function BrandingTab() {
 }
 
 function UsersTab() {
+  const ownerEmail = import.meta.env.VITE_OWNER_EMAIL?.toLowerCase?.() ?? "";
   const [query, setQuery] = useState("");
   const { data: rows, refetch, isLoading } = useQuery({
     queryKey: ["admin-users", query],
     queryFn: async () => {
       try {
-        // Get profiles and their corresponding emails from auth.users via a simple fetch
-        const { data: profiles, error } = await supabase
+        let queryBuilder = supabase
           .from("profiles")
-          .select("id, full_name, birthdate, user_roles(role)")
-          .order("full_name");
-        
-        if (error) throw error;
-        
-        if (!profiles || profiles.length === 0) return [];
+          .select("id, email, full_name, birthdate, user_roles(role)")
+          .order("email", { ascending: true });
 
-        // Get emails for all user IDs
-        const { data: authUsers, error: authError } = await supabase
-          .from("auth.users")
-          .select("id, email")
-          .in("id", profiles.map(p => p.id));
-
-        if (authError) {
-          // Fallback: just use profiles without emails
-          return profiles.map(p => ({ ...p, email: "N/A" }));
+        if (query && query.trim()) {
+          const search = query.trim();
+          queryBuilder = queryBuilder.or(`email.ilike.%${search}%,full_name.ilike.%${search}%`);
         }
 
-        // Merge emails with profiles
-        const emailMap = new Map(authUsers?.map(u => [u.id, u.email]) ?? []);
-        return profiles.map(p => ({
-          ...p,
-          email: emailMap.get(p.id) ?? "N/A"
-        })).filter(p => {
-          if (!query.trim()) return true;
-          const q = query.trim().toLowerCase();
-          return (p.full_name?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q));
-        });
+        const { data, error } = await queryBuilder;
+        if (error) throw error;
+        return (data ?? []).map((row: any) => ({
+          ...row,
+          email: row.email ?? "No email",
+        }));
       } catch (err) {
-        console.error("Error loading users:", err);
+        console.error("Error loading admin users:", err);
         return [];
       }
     },
@@ -747,7 +760,11 @@ function UsersTab() {
   }
 
   const list = rows ?? [];
-  const admins = list.filter((u: any) => (u.user_roles ?? []).some((r: any) => r.role === "admin"));
+  const admins = list.filter((u: any) => {
+    const emailMatchesOwner = !!u.email && u.email.toLowerCase() === ownerEmail;
+    const hasAdminRole = (u.user_roles ?? []).some((r: any) => r.role === "admin");
+    return emailMatchesOwner || hasAdminRole;
+  });
   const regularUsers = list.length - admins.length;
 
   return (
@@ -782,7 +799,7 @@ function UsersTab() {
       ) : (
         <div className="space-y-3">
           {list.map((u: any) => {
-            const isAdmin = (u.user_roles ?? []).some((r: any) => r.role === "admin");
+            const isAdmin = !!u.email && u.email.toLowerCase() === ownerEmail || (u.user_roles ?? []).some((r: any) => r.role === "admin");
             return (
               <div key={u.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
                 <div>

@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-type Profile = { full_name: string | null; phone: string | null } | null;
+type Profile = { full_name: string | null; phone: string | null; email?: string | null; birthdate?: string | null } | null;
 
 type AuthCtx = {
   session: Session | null;
@@ -28,16 +28,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  async function loadExtras(userId: string, userEmail?: string) {
-    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
-    const [{ data: role }, { data: prof }] = await Promise.all([
-      supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
-      supabase.from("profiles").select("full_name, phone").eq("id", userId).maybeSingle(),
-    ]);
-    const isAdminFromRole = !!role;
-    const isAdminFromEmail = adminEmail && userEmail === adminEmail;
-    setIsAdmin(isAdminFromRole || isAdminFromEmail);
-    setProfile((prof as Profile) ?? null);
+  async function ensureProfile(user: User) {
+    try {
+      const profilePatch: Record<string, any> = { id: user.id };
+      if (user.email) profilePatch.email = user.email;
+      if (user.user_metadata?.full_name) profilePatch.full_name = user.user_metadata.full_name;
+      const { error } = await supabase.from("profiles").upsert(profilePatch, { onConflict: ["id"] });
+      if (error) console.warn("Profile upsert failed:", error.message);
+    } catch (error) {
+      console.warn("Profile ensure failed:", error);
+    }
+  }
+
+  async function loadExtras(userId: string, email?: string | null) {
+    try {
+      const ownerEmail = import.meta.env.VITE_OWNER_EMAIL?.toLowerCase?.() ?? "joyfulmorningblooms@gmail.com";
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, phone, birthdate, user_roles(role)")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      const profileData: Profile = {
+        full_name: data?.full_name ?? null,
+        phone: data?.phone ?? null,
+        email: data?.email ?? email ?? null,
+        birthdate: data?.birthdate ?? null,
+      };
+      setProfile(profileData);
+
+      const isOwner = !!email && email.toLowerCase() === ownerEmail;
+      const hasAdminRole = !!data?.user_roles?.some((role: any) => role?.role === "admin");
+      setIsAdmin(isOwner || hasAdminRole);
+    } catch (err) {
+      console.warn("Load auth extras failed:", err);
+      const isOwner = !!email && email.toLowerCase() === import.meta.env.VITE_OWNER_EMAIL?.toLowerCase?.();
+      setIsAdmin(isOwner);
+    }
   }
 
   useEffect(() => {
@@ -59,8 +88,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // ignore storage errors
         }
       }
-      if (s?.user) setTimeout(() => loadExtras(s.user.id, s.user.email), 0);
-      else { setIsAdmin(false); setProfile(null); }
+      if (s?.user) {
+        setTimeout(() => {
+          ensureProfile(s.user);
+          loadExtras(s.user.id, s.user.email);
+        }, 0);
+      } else { setIsAdmin(false); setProfile(null); }
     });
 
     (async () => {
@@ -74,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 localStorage.setItem(USER_ID_KEY, data.session.user.id);
               } catch (e) { }
             }
+            await ensureProfile(data.session.user);
             await loadExtras(data.session.user.id, data.session.user.email);
           }
         } else if (typeof window !== 'undefined') {
@@ -92,7 +126,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   try {
                     localStorage.setItem(USER_ID_KEY, newData.session.user.id);
                   } catch (e) { }
-                  if (newData.session.user) await loadExtras(newData.session.user.id, newData.session.user.email);
+                  if (newData.session.user) {
+                    await ensureProfile(newData.session.user);
+                    await loadExtras(newData.session.user.id, newData.session.user.email);
+                  }
                 }
               }
             } catch (e) {
