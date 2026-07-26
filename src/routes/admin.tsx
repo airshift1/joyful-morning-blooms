@@ -286,11 +286,24 @@ function ContentTab() {
 
 function PagesTab() {
   const [editing, setEditing] = useState<string | null>(null);
-  const { data: pages, refetch } = useQuery({
+  const [loading, setLoading] = useState(false);
+  const { data: pages, refetch, isLoading } = useQuery({
     queryKey: ["admin-pages"],
     queryFn: async () => {
-      const { data } = await supabase.from("pages").select("*").order("slug");
-      return data ?? [];
+      try {
+        const { data, error } = await supabase.from("pages").select("*").order("slug");
+        if (error) {
+          if (error.message.includes("does not exist")) {
+            toast.error("Pages table not yet created. Please run the migration first.");
+            return null;
+          }
+          throw error;
+        }
+        return data ?? [];
+      } catch (e) {
+        console.error("Error loading pages:", e);
+        return null;
+      }
     },
   });
 
@@ -298,6 +311,29 @@ function PagesTab() {
     const { error } = await supabase.from("pages").update(updates).eq("id", id);
     if (error) toast.error(error.message);
     else { toast.success("Saved"); refetch(); }
+  }
+
+  if (isLoading) {
+    return <div className="py-6">Loading pages...</div>;
+  }
+
+  if (pages === null) {
+    return (
+      <div className="py-6 rounded-lg border border-border bg-card p-6 max-w-2xl">
+        <h3 className="font-display text-xl mb-3">Migration Required</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          The Pages table hasn't been created yet. To enable page management:
+        </p>
+        <ol className="text-sm space-y-2 list-decimal list-inside mb-4">
+          <li>Go to <strong>Supabase Dashboard</strong> → <strong>SQL Editor</strong></li>
+          <li>Click <strong>New Query</strong></li>
+          <li>Paste the SQL code from <code className="bg-background px-2 py-1 rounded text-xs">PAGES_CMS_SETUP.md</code></li>
+          <li>Click <strong>Run</strong></li>
+          <li>Come back here and refresh</li>
+        </ol>
+        <Button onClick={() => refetch()}>Refresh</Button>
+      </div>
+    );
   }
 
   return (
