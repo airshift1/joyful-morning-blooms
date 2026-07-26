@@ -28,12 +28,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  async function loadExtras(userId: string) {
+  async function loadExtras(userId: string, userEmail?: string) {
+    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL;
     const [{ data: role }, { data: prof }] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle(),
       supabase.from("profiles").select("full_name, phone").eq("id", userId).maybeSingle(),
     ]);
-    setIsAdmin(!!role);
+    const isAdminFromRole = !!role;
+    const isAdminFromEmail = adminEmail && userEmail === adminEmail;
+    setIsAdmin(isAdminFromRole || isAdminFromEmail);
     setProfile((prof as Profile) ?? null);
   }
 
@@ -56,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // ignore storage errors
         }
       }
-      if (s?.user) setTimeout(() => loadExtras(s.user.id), 0);
+      if (s?.user) setTimeout(() => loadExtras(s.user.id, s.user.email), 0);
       else { setIsAdmin(false); setProfile(null); }
     });
 
@@ -71,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 localStorage.setItem(USER_ID_KEY, data.session.user.id);
               } catch (e) { }
             }
-            await loadExtras(data.session.user.id);
+            await loadExtras(data.session.user.id, data.session.user.email);
           }
         } else if (typeof window !== 'undefined') {
           // Try to rehydrate from localStorage if session is missing
@@ -89,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   try {
                     localStorage.setItem(USER_ID_KEY, newData.session.user.id);
                   } catch (e) { }
-                  if (newData.session.user) await loadExtras(newData.session.user.id);
+                  if (newData.session.user) await loadExtras(newData.session.user.id, newData.session.user.email);
                 }
               }
             } catch (e) {
