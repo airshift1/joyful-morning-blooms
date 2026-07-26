@@ -6,7 +6,7 @@ import { formatMoney, formatDate } from "@/lib/format";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { productPhotoUrl } from "@/lib/photo-url";
 import { fallbackImageFor } from "@/lib/product-assets";
@@ -530,20 +530,174 @@ function PageCard({ page, isEditing, onEdit, onClose, onSave }: any) {
 }
 
 function ContentEditor({ row, onSaved }: any) {
-  const [value, setValue] = useState(JSON.stringify(row.value, null, 2));
+  const valueObject = row.value ?? {};
+  const [saving, setSaving] = useState(false);
+  const [jsonValue, setJsonValue] = useState(JSON.stringify(valueObject, null, 2));
+  const [homeHeroEyebrow, setHomeHeroEyebrow] = useState("");
+  const [homeHeroTitle, setHomeHeroTitle] = useState("");
+  const [homeHeroSubtitle, setHomeHeroSubtitle] = useState("");
+  const [homeHeroCta, setHomeHeroCta] = useState("");
+  const [homeStoryTitle, setHomeStoryTitle] = useState("");
+  const [homeStoryBody, setHomeStoryBody] = useState("");
+  const [aboutTitle, setAboutTitle] = useState("");
+  const [aboutBody, setAboutBody] = useState("");
+  const [contactTitle, setContactTitle] = useState("");
+  const [contactBody, setContactBody] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactAddress, setContactAddress] = useState("");
+  const [contactHours, setContactHours] = useState("");
+
+  useEffect(() => {
+    if (row.key === "home") {
+      setHomeHeroEyebrow(valueObject.hero_eyebrow ?? "");
+      setHomeHeroTitle(valueObject.hero_title ?? "");
+      setHomeHeroSubtitle(valueObject.hero_subtitle ?? "");
+      setHomeHeroCta(valueObject.hero_cta ?? "");
+      setHomeStoryTitle(valueObject.story_title ?? "");
+      setHomeStoryBody(valueObject.story_body ?? "");
+    } else if (row.key === "about") {
+      setAboutTitle(valueObject.title ?? "");
+      setAboutBody(valueObject.body ?? "");
+    } else if (row.key === "contact") {
+      setContactTitle(valueObject.title ?? "");
+      setContactBody(valueObject.body ?? "");
+      setContactEmail(valueObject.email ?? "");
+      setContactPhone(valueObject.phone ?? "");
+      setContactAddress(valueObject.address ?? "");
+      setContactHours(valueObject.hours ?? "");
+    } else {
+      setJsonValue(JSON.stringify(valueObject, null, 2));
+    }
+  }, [row.key, JSON.stringify(valueObject)]);
+
   async function save() {
+    setSaving(true);
     try {
-      const parsed = JSON.parse(value);
-      const { error } = await supabase.from("site_content").update({ value: parsed }).eq("key", row.key);
+      let nextValue: any;
+      if (row.key === "home") {
+        nextValue = {
+          ...valueObject,
+          hero_eyebrow: homeHeroEyebrow,
+          hero_title: homeHeroTitle,
+          hero_subtitle: homeHeroSubtitle,
+          hero_cta: homeHeroCta,
+          story_title: homeStoryTitle,
+          story_body: homeStoryBody,
+        };
+      } else if (row.key === "about") {
+        nextValue = { ...valueObject, title: aboutTitle, body: aboutBody };
+      } else if (row.key === "contact") {
+        nextValue = {
+          ...valueObject,
+          title: contactTitle,
+          body: contactBody,
+          email: contactEmail,
+          phone: contactPhone,
+          address: contactAddress,
+          hours: contactHours,
+        };
+      } else {
+        nextValue = JSON.parse(jsonValue);
+      }
+
+      const { error } = await supabase.from("site_content").upsert({ key: row.key, value: nextValue });
       if (error) throw error;
-      toast.success("Saved"); onSaved();
-    } catch (e: any) { toast.error(e.message); }
+      toast.success("Saved");
+      onSaved();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save content");
+    } finally {
+      setSaving(false);
+    }
   }
+
+  const renderHomeEditor = () => (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-1">Hero eyebrow</label>
+        <input value={homeHeroEyebrow} onChange={(e) => setHomeHeroEyebrow(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Hero title</label>
+        <input value={homeHeroTitle} onChange={(e) => setHomeHeroTitle(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Hero subtitle</label>
+        <textarea value={homeHeroSubtitle} onChange={(e) => setHomeHeroSubtitle(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-28" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Hero CTA</label>
+        <input value={homeHeroCta} onChange={(e) => setHomeHeroCta(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Story title</label>
+        <input value={homeStoryTitle} onChange={(e) => setHomeStoryTitle(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Story body</label>
+        <textarea value={homeStoryBody} onChange={(e) => setHomeStoryBody(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-28" />
+      </div>
+    </div>
+  );
+
+  const renderAboutEditor = () => (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-1">Page title</label>
+        <input value={aboutTitle} onChange={(e) => setAboutTitle(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Page body</label>
+        <textarea value={aboutBody} onChange={(e) => setAboutBody(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-28" />
+      </div>
+    </div>
+  );
+
+  const renderContactEditor = () => (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-1">Page title</label>
+        <input value={contactTitle} onChange={(e) => setContactTitle(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-1">Page body</label>
+        <textarea value={contactBody} onChange={(e) => setContactBody(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-28" />
+      </div>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Email</label>
+          <input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Phone</label>
+          <input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Address</label>
+          <input value={contactAddress} onChange={(e) => setContactAddress(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Hours</label>
+          <input value={contactHours} onChange={(e) => setContactHours(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="rounded-lg border border-border bg-card p-5">
       <p className="font-display text-xl mb-3">{row.key}</p>
-      <textarea value={value} onChange={(e) => setValue(e.target.value)} className="w-full font-mono text-xs rounded-md border border-input bg-background px-3 py-2 min-h-48" />
-      <Button size="sm" className="mt-3" onClick={save}>Save</Button>
+      {row.key === "home" ? renderHomeEditor() : row.key === "about" ? renderAboutEditor() : row.key === "contact" ? renderContactEditor() : (
+        <textarea value={jsonValue} onChange={(e) => setJsonValue(e.target.value)} className="w-full font-mono text-xs rounded-md border border-input bg-background px-3 py-2 min-h-48" />
+      )}
+      <div className="mt-4">
+        <Button size="sm" onClick={save} disabled={saving}>
+          {saving ? "Saving..." : "Save"}
+        </Button>
+      </div>
     </div>
   );
 }
