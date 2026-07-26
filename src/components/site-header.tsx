@@ -1,10 +1,11 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
-import { Menu, X, ShoppingBag, User as UserIcon, Sparkles } from "lucide-react";
+import { Menu, X, ShoppingBag, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { useSiteSettings } from "@/hooks/use-site-settings";
 import { brandingUrl } from "@/lib/photo-url";
+import { UserMenu } from "@/components/user-menu";
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
@@ -45,26 +46,8 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <div className="hidden md:flex items-center gap-2">
-          {user ? (
-            <>
-              {isAdmin && (
-                <Button asChild size="sm" variant="outline">
-                  <Link to="/admin">Admin</Link>
-                </Button>
-              )}
-              <Button asChild size="sm" variant="ghost">
-                <Link to="/account"><UserIcon className="h-4 w-4 mr-1.5" />Account</Link>
-              </Button>
-              <Button size="sm" variant="ghost" onClick={async () => { await signOut(); router.navigate({ to: "/" }); }}>
-                Sign out
-              </Button>
-            </>
-          ) : (
-            <Button asChild size="sm" variant="outline">
-              <Link to="/auth">Sign in</Link>
-            </Button>
-          )}
+        <div className="hidden md:flex items-center gap-3">
+          <UserMenu />
           <Button asChild size="sm">
             <Link to="/shop"><ShoppingBag className="h-4 w-4 mr-1.5" />Shop</Link>
           </Button>
@@ -90,12 +73,12 @@ export function SiteHeader() {
             <div className="flex flex-col gap-2 pt-2 border-t border-border/60">
               {user ? (
                 <>
-                  {isAdmin && <Link to="/admin" onClick={() => setOpen(false)} className="py-2">Admin</Link>}
-                  <Link to="/account" onClick={() => setOpen(false)} className="py-2">Account</Link>
-                  <button onClick={async () => { await signOut(); setOpen(false); router.navigate({ to: "/" }); }} className="py-2 text-left">Sign out</button>
+                  <Link to="/account" onClick={() => setOpen(false)} className="py-2 text-foreground/80">Account Settings</Link>
+                  {isAdmin && <Link to="/admin" onClick={() => setOpen(false)} className="py-2 text-foreground/80 font-medium">Admin Panel</Link>}
+                  <button onClick={async () => { await signOut(); setOpen(false); router.navigate({ to: "/" }); }} className="py-2 text-left text-red-600 dark:text-red-400">Sign out</button>
                 </>
               ) : (
-                <Link to="/auth" onClick={() => setOpen(false)} className="py-2">Sign in</Link>
+                <Link to="/auth" onClick={() => setOpen(false)} className="py-2 text-foreground/80">Sign in</Link>
               )}
             </div>
           </div>
