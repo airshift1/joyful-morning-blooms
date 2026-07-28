@@ -30,6 +30,7 @@ function Account() {
   const [amountDollars, setAmountDollars] = useState("25");
   const [description, setDescription] = useState("Floral order payment");
   const [cardInstance, setCardInstance] = useState<any>(null);
+  const [cardError, setCardError] = useState<string | null>(null);
   const cardContainerRef = useRef<HTMLDivElement>(null);
 
   if (isEditing) {
@@ -106,6 +107,7 @@ function Account() {
     if (!scriptLoaded || !squareConfig?.connected || !squareConfig.app_id || !squareConfig.location_id) {
       setCardReady(false);
       setCardInstance(null);
+      setCardError("Card payments are not ready yet. Make sure the Square app ID, location ID, and access token are configured for this site.");
       return () => {
         cancelled = true;
       };
@@ -119,11 +121,13 @@ function Account() {
         await card.attach("#square-card-container");
         setCardInstance(card);
         setCardReady(true);
+        setCardError(null);
       } catch (error) {
         console.error("Unable to initialize Square card form", error);
         if (!cancelled) {
           setCardReady(false);
           setCardInstance(null);
+          setCardError(error instanceof Error ? error.message : "The card form could not be loaded. Check the Square configuration and try again.");
         }
       }
     }
@@ -251,6 +255,7 @@ function Account() {
               </Button>
               {!cardReady && <p className="text-sm text-muted-foreground">Preparing the secure card form…</p>}
             </div>
+            {cardError && <p className="text-sm text-red-600">{cardError}</p>}
           </div>
         )}
       </section>
