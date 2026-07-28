@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_authenticated/account")({
 });
 
 function Account() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const router = useRouter();
   const isEditing = router.state.location.pathname === "/account/edit";
 
@@ -38,6 +38,18 @@ function Account() {
     <div className="container-editorial py-16 md:py-24">
       <p className="eyebrow">Your account</p>
       <h1 className="mt-3 font-display text-5xl">Hello{profile?.full_name ? `, ${profile.full_name}` : ""}</h1>
+
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {isAdmin && (
+          <Button asChild>
+            <Link to="/admin">Open admin panel</Link>
+          </Button>
+        )}
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => supabase.auth.signOut()}>Sign out</Button>
+          <Button asChild variant="outline"><Link to="/account/edit">Edit profile</Link></Button>
+        </div>
+      </div>
 
       <section className="mt-12">
         <h2 className="font-display text-3xl mb-6">Your orders</h2>
@@ -65,10 +77,6 @@ function Account() {
         </div>
       </section>
 
-      <section className="mt-12 flex items-center gap-3">
-        <Button variant="outline" onClick={() => supabase.auth.signOut()}>Sign out</Button>
-        <Button asChild variant="outline"><Link to="/account/edit">Edit profile</Link></Button>
-      </section>
     </div>
   );
 }

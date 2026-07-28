@@ -59,7 +59,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
-            onClick={() => { router.invalidate(); reset(); }}
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
             className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             Try again
@@ -81,17 +84,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Joyful Morning Blooms — Handcrafted florals for life's moments" },
-      { name: "description", content: "Seasonal, hand-tied bouquets and custom arrangements. Order online" },
-      { name: "author", content: "Joyful Morning Blooms" },
-      { property: "og:title", content: "Joyful Morning Blooms — Handcrafted florals for life's moments" },
-      { property: "og:description", content: "Seasonal, hand-tied bouquets and custom arrangements. Order online" },
+      { title: "Ella AI — Personal assistant" },
+      {
+        name: "description",
+        content:
+          "Ella AI is your personal assistant dashboard for quick answers, system checks, and smart automation.",
+      },
+      { name: "author", content: "Ella AI" },
+      { property: "og:title", content: "Ella AI — Personal assistant" },
+      {
+        property: "og:description",
+        content:
+          "Ella AI is your personal assistant dashboard for quick answers, system checks, and smart automation.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Joyful Morning Blooms — Handcrafted florals for life's moments" },
-      { name: "twitter:description", content: "Seasonal, hand-tied bouquets and custom arrangements. Order online" },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e87b1a0f-9c63-4b57-8507-2857b5cce7e1/id-preview-a1ecebd4--8f62f357-51e5-444f-ac50-4a85bb8979eb.lovable.app-1784226015685.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/e87b1a0f-9c63-4b57-8507-2857b5cce7e1/id-preview-a1ecebd4--8f62f357-51e5-444f-ac50-4a85bb8979eb.lovable.app-1784226015685.png" },
+      { name: "twitter:title", content: "Ella AI — Personal assistant" },
+      {
+        name: "twitter:description",
+        content:
+          "Ella AI is your personal assistant dashboard for quick answers, system checks, and smart automation.",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -113,7 +126,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <head><HeadContent /></head>
+      <head>
+        <HeadContent />
+      </head>
       <body>
         {children}
         <Scripts />
@@ -138,8 +153,13 @@ function AuthSync() {
 function DynamicFavicon() {
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("site_settings").select("value").eq("key", "branding").maybeSingle();
-      const path = (data?.value as any)?.favicon_path as string | undefined;
+      const { data } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "branding")
+        .maybeSingle();
+      const path = (data?.value as Record<string, unknown> | undefined)?.favicon_path as
+        string | undefined;
       if (!path) return;
       const url = path.startsWith("http")
         ? path
@@ -154,7 +174,6 @@ function DynamicFavicon() {
   return null;
 }
 
-
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -164,7 +183,6 @@ function RootComponent() {
         <AuthSync />
         <DynamicFavicon />
         <div className="flex flex-col min-h-screen">
-
           <SiteHeader />
           <main className="flex-1">
             <Outlet />
