@@ -53,17 +53,37 @@ function getServerSupabase() {
   return createClient(url, key, { global: { fetch } });
 }
 
+async function resolveSquareCredentials(supabase: ReturnType<typeof getServerSupabase>) {
+  const envCreds = {
+    access_token: process.env.SQUARE_ACCESS_TOKEN ?? null,
+    app_id: process.env.SQUARE_APP_ID ?? null,
+    location_id: process.env.SQUARE_LOCATION_ID ?? null,
+  };
+
+  try {
+    const { data: row } = await supabase.from("admin_settings").select("setting_value").eq("id", "square").maybeSingle();
+    const dbCreds = row?.setting_value ?? null;
+    return {
+      access_token: dbCreds?.access_token ?? envCreds.access_token ?? null,
+      app_id: dbCreds?.app_id ?? envCreds.app_id ?? null,
+      location_id: dbCreds?.location_id ?? envCreds.location_id ?? null,
+    };
+  } catch (error) {
+    console.error("Unable to load Square settings from Supabase, falling back to env:", error);
+    return envCreds;
+  }
+}
+
 async function handleSquareApi(request: Request): Promise<Response | null> {
   const url = new URL(request.url);
   const supabase = getServerSupabase();
 
   if (url.pathname === "/api/square/config") {
     try {
-      const { data: row } = await supabase.from("admin_settings").select("setting_value").eq("id", "square").maybeSingle();
-      const creds = row?.setting_value ?? null;
-      const connected = !!(creds && creds.access_token && creds.location_id && creds.app_id);
-      const app_id = creds?.app_id ?? null;
-      const location_id = creds?.location_id ?? null;
+      const creds = await resolveSquareCredentials(supabase);
+      const connected = !!(creds.access_token && creds.location_id && creds.app_id);
+      const app_id = creds.app_id ?? null;
+      const location_id = creds.location_id ?? null;
       return new Response(JSON.stringify({ connected, app_id, location_id }), { status: 200, headers: { "content-type": "application/json" } });
     } catch (e) {
       console.error("Error reading square config:", e);
@@ -73,9 +93,8 @@ async function handleSquareApi(request: Request): Promise<Response | null> {
 
   if (url.pathname === "/api/square/test" && request.method.toUpperCase() === "GET") {
     try {
-      const { data: row } = await supabase.from("admin_settings").select("setting_value").eq("id", "square").maybeSingle();
-      const creds = row?.setting_value ?? null;
-      if (!creds || !creds.access_token) {
+      const creds = await resolveSquareCredentials(supabase);
+      if (!creds.access_token) {
         return new Response(JSON.stringify({ ok: false, message: "Square not configured" }), { status: 400, headers: { "content-type": "application/json" } });
       }
       const accessToken = creds.access_token;
@@ -102,9 +121,8 @@ async function handleSquareApi(request: Request): Promise<Response | null> {
 
   if (url.pathname === "/api/square/test-payment" && request.method.toUpperCase() === "POST") {
     try {
-      const { data: row } = await supabase.from("admin_settings").select("setting_value").eq("id", "square").maybeSingle();
-      const creds = row?.setting_value ?? null;
-      if (!creds || !creds.access_token || !creds.app_id) {
+      const creds = await resolveSquareCredentials(supabase);
+      if (!creds.access_token || !creds.app_id) {
         return new Response(JSON.stringify({ ok: false, message: "Square not configured" }), { status: 400, headers: { "content-type": "application/json" } });
       }
       const appId = (creds.app_id || "").toString().toLowerCase();
@@ -158,9 +176,8 @@ async function handleSquareApi(request: Request): Promise<Response | null> {
       const { sourceId, amountCents, idempotencyKey } = body as any;
       if (!sourceId || !amountCents) return new Response(JSON.stringify({ error: "Missing sourceId or amountCents" }), { status: 400, headers: { "content-type": "application/json" } });
 
-      const { data: row } = await supabase.from("admin_settings").select("setting_value").eq("id", "square").maybeSingle();
-      const creds = row?.setting_value ?? null;
-      if (!creds || !creds.access_token || !creds.location_id) {
+      const creds = await resolveSquareCredentials(supabase);
+      if (!creds.access_token || !creds.location_id) {
         return new Response(JSON.stringify({ error: "Square not configured by an admin" }), { status: 400, headers: { "content-type": "application/json" } });
       }
 
