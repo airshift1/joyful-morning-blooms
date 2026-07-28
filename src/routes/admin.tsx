@@ -739,6 +739,26 @@ function SettingsTab() {
   const [isSaving, setIsSaving] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
+  useEffect(() => {
+    async function loadSquareSettings() {
+      try {
+        const { data, error } = await supabase.from("admin_settings").select("setting_value").eq("id", "square").maybeSingle();
+        if (error) throw error;
+        const settings = data?.setting_value as any;
+        if (settings) {
+          setSquareAppId(settings.app_id ?? "");
+          setSquareAccessToken(settings.access_token ?? "");
+          setSquareLocationId(settings.location_id ?? "");
+          setIsConnected(!!settings.app_id && !!settings.access_token && !!settings.location_id);
+        }
+      } catch (err) {
+        console.error("Failed to load Square settings:", err);
+      }
+    }
+
+    loadSquareSettings();
+  }, []);
+
   async function handleSaveSquareSettings() {
     setIsSaving(true);
     try {
@@ -809,6 +829,39 @@ function SettingsTab() {
               onBlur={(e) => saveVase({ ...vase, price_cents: Math.round(Number(e.target.value) * 100) })}
               className="w-24 rounded-md border border-input px-2 py-1" />
           </label>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-border bg-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="font-display text-2xl">Square checkout</h3>
+            <p className="text-sm text-muted-foreground">Save your Square credentials to enable online payments for orders.</p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isConnected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+            {isConnected ? "Connected" : "Not connected"}
+          </span>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Square App ID</label>
+            <input value={squareAppId} onChange={(e) => setSquareAppId(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Square Location ID</label>
+            <input value={squareLocationId} onChange={(e) => setSquareLocationId(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block text-sm font-medium mb-1">Square Access Token</label>
+            <input value={squareAccessToken} type="password" onChange={(e) => setSquareAccessToken(e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+            <p className="text-xs text-muted-foreground mt-2">Keep this private. It is used to connect your Square account.</p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button onClick={handleSaveSquareSettings} disabled={isSaving}>{isSaving ? "Saving..." : "Save Square credentials"}</Button>
+          {isConnected && <Button variant="outline" onClick={handleDisconnectSquare}>Disconnect Square</Button>}
         </div>
       </section>
     </div>
