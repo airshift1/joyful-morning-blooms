@@ -306,7 +306,24 @@ function PagesTab() {
           }
           throw error;
         }
-        return data ?? [];
+        const pagesList = data ?? [];
+        // load optional pages ordering (admin-only preference)
+        try {
+          const { data: orderRow } = await supabase.from("site_settings").select("value").eq("key", "pages_order").maybeSingle();
+          const order = (orderRow?.value ?? null) as string[] | null;
+          if (Array.isArray(order) && order.length > 0) {
+            const byId: Record<string, any> = {};
+            pagesList.forEach((p: any) => { byId[p.id] = p; });
+            const ordered: any[] = [];
+            order.forEach((id: string) => { if (byId[id]) { ordered.push(byId[id]); delete byId[id]; } });
+            // append any pages not in the order list
+            Object.values(byId).forEach((p: any) => ordered.push(p));
+            return ordered;
+          }
+        } catch (e) {
+          console.warn("Failed to load pages_order", e);
+        }
+        return pagesList;
       } catch (e) {
         console.error("Error loading pages:", e);
         return null;
@@ -318,6 +335,7 @@ function PagesTab() {
     const slug = prompt("Slug for the new page (e.g. 'home', 'about', 'contact')")?.trim();
     if (!slug) return;
     const title = prompt("Page title", slug) ?? slug;
+    const position = prompt("Insert position: 'start' or 'end' (leave blank for end)");
     const id = crypto.randomUUID();
     const { error } = await supabase.from("pages").insert({
       id,
@@ -333,6 +351,23 @@ function PagesTab() {
       toast.error(error.message);
       return;
     }
+
+    // update pages_order in site_settings so admins can control ordering in the admin UI
+    try {
+      const { data: orderRow } = await supabase.from("site_settings").select("value").eq("key", "pages_order").maybeSingle();
+      const order = (orderRow?.value ?? null) as string[] | null;
+      let newOrder: string[] = [];
+      if (Array.isArray(order)) newOrder = [...order];
+      if (position === "start") {
+        newOrder.unshift(id);
+      } else {
+        newOrder.push(id);
+      }
+      await supabase.from("site_settings").upsert({ key: "pages_order", value: newOrder });
+    } catch (e) {
+      console.warn("Failed to update pages_order", e);
+    }
+
     toast.success("Page created");
     refetch();
     setEditing(id);
@@ -384,7 +419,22 @@ function PagesTab() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {pageList.map((page: any) => (
-            <PageCard key={page.id} page={page} isEditing={editing === page.id} onEdit={() => setEditing(page.id)} onClose={() => setEditing(null)} onSave={(updates) => { updatePage(page.id, updates); setEditing(null); }} />
+            <PageCard key={page.id} page={page} isEditing={editing === page.id} onEdit={() => setEditing(page.id)} onClose={() => setEditing(null)} onSave={(updates) => { updatePage(page.id, updates); setEditing(null); }} onDelete={async () => {
+              if (!confirm("Delete this page? This cannot be undone.")) return;
+              const { error } = await supabase.from("pages").delete().eq("id", page.id);
+              if (error) { toast.error(error.message); return; }
+              // remove from pages_order
+              try {
+                const { data: orderRow } = await supabase.from("site_settings").select("value").eq("key", "pages_order").maybeSingle();
+                const order = (orderRow?.value ?? null) as string[] | null;
+                if (Array.isArray(order)) {
+                  const newOrder = order.filter((x: string) => x !== page.id);
+                  await supabase.from("site_settings").upsert({ key: "pages_order", value: newOrder });
+                }
+              } catch (e) { console.warn(e); }
+              toast.success("Page deleted");
+              refetch();
+            }} />
           ))}
         </div>
       )}
@@ -392,7 +442,7 @@ function PagesTab() {
   );
 }
 
-function PageCard({ page, isEditing, onEdit, onClose, onSave }: any) {
+function PageCard({ page, isEditing, onEdit, onClose, onSave, onDelete }: any) {
   const [title, setTitle] = useState(page.title);
   const [subtitle, setSubtitle] = useState(page.subtitle);
   const [content, setContent] = useState(page.content);
@@ -439,7 +489,10 @@ function PageCard({ page, isEditing, onEdit, onClose, onSave }: any) {
               </div>
             )}
           </div>
-          <Button size="sm" onClick={onEdit}>Edit Page</Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={onEdit}>Edit Page</Button>
+            <Button size="sm" variant="destructive" onClick={onDelete}>Delete</Button>
+          </div>
         </div>
       </div>
     );
