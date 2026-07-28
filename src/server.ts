@@ -62,7 +62,9 @@ async function handleSquareApi(request: Request): Promise<Response | null> {
       const { data: row } = await supabase.from("admin_settings").select("setting_value").eq("id", "square").maybeSingle();
       const creds = row?.setting_value ?? null;
       const connected = !!(creds && creds.access_token && creds.location_id && creds.app_id);
-      return new Response(JSON.stringify({ connected }), { status: 200, headers: { "content-type": "application/json" } });
+      const app_id = creds?.app_id ?? null;
+      const location_id = creds?.location_id ?? null;
+      return new Response(JSON.stringify({ connected, app_id, location_id }), { status: 200, headers: { "content-type": "application/json" } });
     } catch (e) {
       console.error("Error reading square config:", e);
       return new Response(JSON.stringify({ connected: false, error: String(e) }), { status: 500, headers: { "content-type": "application/json" } });

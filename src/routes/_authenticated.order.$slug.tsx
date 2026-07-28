@@ -2,7 +2,7 @@ import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/format";
 import { fallbackImageFor } from "@/lib/product-assets";
@@ -79,12 +79,134 @@ function OrderForm() {
     ? productPhotoUrl(product.product_photos[0].storage_path)
     : fallbackImageFor(product.slug);
 
+  const [squareConnected, setSquareConnected] = useState(false);
+  const [squareAppId, setSquareAppId] = useState<string | null>(null);
+  const [squareLocationId, setSquareLocationId] = useState<string | null>(null);
+  const [squareLoaded, setSquareLoaded] = useState(false);
+  const [cardInstance, setCardInstance] = useState<any>(null);
+
+  // load square config when payment selection changes to online
+  useEffect(() => {
+    let mounted = true;
+    async function init() {
+      if (!payOnlineEnabled) return;
+      try {
+        const res = await fetch('/api/square/config');
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!mounted) return;
+        if (json.connected && json.app_id && json.location_id) {
+          setSquareConnected(true);
+          setSquareAppId(json.app_id);
+          setSquareLocationId(json.location_id);
+          // dynamically load the Square script (only in browser)
+          if (!(window as any).Square) {
+            const script = document.createElement('script');
+            script.src = 'https://web.squarecdn.com/v1/square.js';
+            script.async = true;
+            script.onload = () => setSquareLoaded(true);
+            script.onerror = () => { console.error('Failed to load square.js'); setSquareLoaded(false); };
+            document.head.appendChild(script);
+          } else {
+            setSquareLoaded(true);
+          }
+        }
+      } catch (e) {
+        console.warn('Error checking square config', e);
+      }
+    }
+    init();
+    return () => { mounted = false; };
+  }, [payOnlineEnabled]);
+
+  // attach card when script loaded and payment is online
+  useEffect(() => {
+    let mounted = true;
+    async function attachCard() {
+      if (!squareLoaded || !squareAppId || !squareLocationId) return;
+      try {
+        const Square = (window as any).Square;
+        if (!Square || !Square.payments) return;
+        const payments = Square.payments(squareAppId, squareLocationId);
+        const card = await payments.card();
+        await card.attach('#square-card');
+        if (!mounted) return;
+        setCardInstance(card);
+      } catch (e) {
+        console.error('Failed to initialize Square card:', e);
+      }
+    }
+    attachCard();
+    return () => { mounted = false; };
+  }, [squareLoaded, squareAppId, squareLocationId]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!user) return;
     if (!date) { toast.error("Please choose a date"); return; }
     if (fulfillment === "delivery" && !address) { toast.error("Please enter a delivery address"); return; }
     setBusy(true);
+
+    // If paying online, tokenize with Square then call server endpoint
+    if (payment === 'online') {
+      if (!payOnlineEnabled) { toast.error('Online payments are not enabled'); setBusy(false); return; }
+      if (!squareConnected || !cardInstance) { toast.error('Online payments not configured by admin'); setBusy(false); return; }
+      try {
+        const result = await cardInstance.tokenize();
+        if (result.status !== 'OK') {
+          toast.error('Payment tokenization failed');
+          setBusy(false);
+          return;
+        }
+        const sourceId = result.token;
+        const payRes = await fetch('/api/square/pay', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sourceId, amountCents: total }),
+        });
+        const payJson = await payRes.json();
+        if (!payRes.ok || payJson.error) {
+          toast.error('Payment failed: ' + (payJson?.error?.message ?? JSON.stringify(payJson?.details ?? payJson)));
+          setBusy(false);
+          return;
+        }
+        // create order record with payment info
+        const { error } = await supabase.from('orders').insert({
+          user_id: user.id,
+          product_id: product!.id,
+          product_name: product!.name,
+          size_id: activeSize?.id ?? null,
+          size_name: activeSize?.name ?? null,
+          quantity,
+          vase_added: addVase,
+          vase_price_cents: addVase ? vaseCfg.price_cents : 0,
+          subtotal_cents: total,
+          fulfillment,
+          needed_date: date,
+          needed_time: time || '',
+          custom_description: customDescription,
+          contact_preference: contactPref,
+          full_name: fullName,
+          phone,
+          email,
+          payment_method: 'online',
+          status: 'paid',
+          admin_notes: JSON.stringify({ square_payment: payJson.payment ?? payJson }),
+        });
+        setBusy(false);
+        if (error) { toast.error(error.message); return; }
+        toast.success('Payment successful and order placed.');
+        navigate({ to: '/account' });
+        return;
+      } catch (e) {
+        console.error(e);
+        toast.error('Payment failed.');
+        setBusy(false);
+        return;
+      }
+    }
+
+    // fallback: in-person or non-online payment
     const { error } = await supabase.from("orders").insert({
       user_id: user.id,
       product_id: product!.id,
@@ -262,7 +384,17 @@ function OrderForm() {
               )}
             </div>
             {payment === "online" && (
-              <p className="mt-3 text-xs text-muted-foreground">Online payments will be finalized after submission.</p>
+              <div className="mt-3">
+                <p className="text-xs text-muted-foreground mb-2">Online payments will be finalized after submission.</p>
+                {!payOnlineEnabled && <p className="text-xs text-destructive">Online payments are currently disabled.</p>}
+                {payOnlineEnabled && !squareConnected && <p className="text-xs text-muted-foreground">Online payments are not configured. Admin must add Square credentials in Settings.</p>}
+                {payOnlineEnabled && squareConnected && (
+                  <div>
+                    <div id="square-card" className="mt-2"></div>
+                    <p className="text-xs text-muted-foreground">Your card details are tokenized securely by Square.</p>
+                  </div>
+                )}
+              </div>
             )}
           </section>
 
