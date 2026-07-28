@@ -964,16 +964,37 @@ function UsersTab() {
           }
         }
 
+        let paymentRows: any[] = [];
+        if (userIds.length > 0) {
+          const paymentKeys = userIds.map((id) => `user_payment_${id}`);
+          const { data: fetchedPayments, error: paymentError } = await supabase
+            .from("site_settings")
+            .select("key, value")
+            .in("key", paymentKeys);
+          if (!paymentError && Array.isArray(fetchedPayments)) {
+            paymentRows = fetchedPayments;
+          }
+        }
+
         const roleMap: Record<string, any[]> = {};
         roleRows.forEach((role: any) => {
           if (!role.user_id) return;
           roleMap[role.user_id] = [...(roleMap[role.user_id] ?? []), role];
         });
 
+        const paymentMap: Record<string, any> = {};
+        paymentRows.forEach((row: any) => {
+          const match = row.key?.toString().replace(/^user_payment_/, "");
+          if (match) {
+            paymentMap[match] = row.value;
+          }
+        });
+
         return profileRows.map((row: any) => ({
           ...row,
           email: row.email ?? "No email",
           user_roles: roleMap[row.id] ?? [],
+          payment_settings: paymentMap[row.id] ?? null,
         }));
       } catch (err) {
         console.error("Error loading admin users:", err);
@@ -1034,17 +1055,23 @@ function UsersTab() {
         <div className="space-y-3">
           {list.map((u: any) => {
             const isAdmin = isAdminEmail(u.email) || (u.user_roles ?? []).some((r: any) => r.role === "admin");
+            const paymentMethod = u.payment_settings?.payment_method ?? "in_person";
+            const paymentLabel = u.payment_settings?.payment_label ?? "";
+            const paymentSaved = !!u.payment_settings?.payment_token;
             return (
-              <div key={u.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
-                <div>
-                  <p className="font-medium">{u.full_name || "(no name)"} {u.birthdate && <span className="text-sm text-muted-foreground">· Born {new Date(u.birthdate).toLocaleDateString()}</span>}</p>
-                  <p className="text-sm text-muted-foreground">{u.email}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {isAdmin && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-accent text-accent-foreground">Admin</span>}
-                  <Button size="sm" variant={isAdmin ? "outline" : "default"} onClick={() => toggleAdmin(u.id, !isAdmin)}>
-                    {isAdmin ? "Remove admin" : "Make admin"}
-                  </Button>
+              <div key={u.id} className="rounded-lg border border-border bg-card p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-medium">{u.full_name || "(no name)"} {u.birthdate && <span className="text-sm text-muted-foreground">· Born {new Date(u.birthdate).toLocaleDateString()}</span>}</p>
+                    <p className="text-sm text-muted-foreground">{u.email}</p>
+                    <p className="text-sm text-muted-foreground mt-1">Payment: <strong>{paymentMethod === "online" ? `Online${paymentLabel ? ` (${paymentLabel})` : ""}` : "In person"}</strong>{paymentSaved ? " · Saved secret" : ""}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isAdmin && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-accent text-accent-foreground">Admin</span>}
+                    <Button size="sm" variant={isAdmin ? "outline" : "default"} onClick={() => toggleAdmin(u.id, !isAdmin)}>
+                      {isAdmin ? "Remove admin" : "Make admin"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             );

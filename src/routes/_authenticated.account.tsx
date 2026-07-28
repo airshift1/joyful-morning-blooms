@@ -5,6 +5,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { formatMoney, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 
+function maskPaymentValue(value: string) {
+  if (!value) return "";
+  return value.length <= 4 ? "••••" : `•••• ${value.slice(-4)}`;
+}
+
 export const Route = createFileRoute("/_authenticated/account")({
   head: () => ({
     meta: [{ title: "My account — Joyful Morning Blooms" }, { name: "robots", content: "noindex" }],
@@ -34,6 +39,15 @@ function Account() {
     },
   });
 
+  const { data: paymentSettings } = useQuery({
+    queryKey: ["user-payment-settings", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data } = await supabase.from("site_settings").select("value").eq("key", `user_payment_${user!.id}`).maybeSingle();
+      return (data?.value ?? null) as Record<string, any> | null;
+    },
+  });
+
   return (
     <div className="container-editorial py-16 md:py-24">
       <p className="eyebrow">Your account</p>
@@ -50,6 +64,24 @@ function Account() {
           <Button asChild variant="outline"><Link to="/account/edit">Edit profile</Link></Button>
         </div>
       </div>
+
+      <section className="mt-10 rounded-lg border border-border bg-card p-6">
+        <h2 className="font-display text-2xl mb-4">Payment preferences</h2>
+        {paymentSettings ? (
+          <div className="space-y-2">
+            <p className="text-sm">Preferred payment: <strong>{paymentSettings.payment_method === "online" ? "Online" : "Pay in person"}</strong></p>
+            {paymentSettings.payment_label && <p className="text-sm">Saved payment label: <strong>{paymentSettings.payment_label}</strong></p>}
+            {paymentSettings.payment_method === "online" && paymentSettings.payment_token && (
+              <p className="text-sm">Saved payment secret: <strong>{maskPaymentValue(paymentSettings.payment_token)}</strong></p>
+            )}
+            {!paymentSettings.payment_token && paymentSettings.payment_method === "online" && (
+              <p className="text-sm text-muted-foreground">Online payment is enabled, but no secret is set yet. Add one in account settings.</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Save your preferred payment method and an optional payment secret in account settings.</p>
+        )}
+      </section>
 
       <section className="mt-12">
         <h2 className="font-display text-3xl mb-6">Your orders</h2>
