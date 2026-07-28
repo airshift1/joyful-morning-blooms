@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, Link } from "@tanstack/react-router";
+import { createFileRoute, redirect, Link, Outlet, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -42,6 +42,13 @@ function AdminGate() {
 }
 
 function AdminDashboard() {
+  const router = useRouter();
+  const isEditingHome = router.state.location.pathname === "/admin/edit-home";
+
+  if (isEditingHome) {
+    return <Outlet />;
+  }
+
   return (
     <div className="container-editorial py-10">
       <p className="eyebrow">Admin</p>

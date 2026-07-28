@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouter } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -14,6 +14,12 @@ export const Route = createFileRoute("/_authenticated/account")({
 
 function Account() {
   const { user, profile } = useAuth();
+  const router = useRouter();
+  const isEditing = router.state.location.pathname === "/account/edit";
+
+  if (isEditing) {
+    return <Outlet />;
+  }
 
   const { data: orders } = useQuery({
     queryKey: ["my-orders", user?.id],
