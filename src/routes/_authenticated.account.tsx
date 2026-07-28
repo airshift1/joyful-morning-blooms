@@ -5,11 +5,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { formatMoney, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 
-function maskPaymentValue(value: string) {
-  if (!value) return "";
-  return value.length <= 4 ? "••••" : `•••• ${value.slice(-4)}`;
-}
-
 export const Route = createFileRoute("/_authenticated/account")({
   head: () => ({
     meta: [{ title: "My account — Joyful Morning Blooms" }, { name: "robots", content: "noindex" }],
@@ -71,15 +66,14 @@ function Account() {
           <div className="space-y-2">
             <p className="text-sm">Preferred payment: <strong>{paymentSettings.payment_method === "online" ? "Online" : "Pay in person"}</strong></p>
             {paymentSettings.payment_label && <p className="text-sm">Saved payment label: <strong>{paymentSettings.payment_label}</strong></p>}
-            {paymentSettings.payment_method === "online" && paymentSettings.payment_token && (
-              <p className="text-sm">Saved payment secret: <strong>{maskPaymentValue(paymentSettings.payment_token)}</strong></p>
-            )}
-            {!paymentSettings.payment_token && paymentSettings.payment_method === "online" && (
-              <p className="text-sm text-muted-foreground">Online payment is enabled, but no secret is set yet. Add one in account settings.</p>
-            )}
+            {paymentSettings.payment_method === "online" && paymentSettings.payment_last4 ? (
+              <p className="text-sm">Saved payment method: <strong>{paymentSettings.payment_brand ?? "Card"} ending {paymentSettings.payment_last4}</strong></p>
+            ) : paymentSettings.payment_method === "online" ? (
+              <p className="text-sm text-muted-foreground">Enter card details during checkout to save a payment method for next time.</p>
+            ) : null}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">Save your preferred payment method and an optional payment secret in account settings.</p>
+          <p className="text-sm text-muted-foreground">Save your preferred payment method and a saved card at checkout.</p>
         )}
       </section>
 

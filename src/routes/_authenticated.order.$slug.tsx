@@ -2,7 +2,7 @@ import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/format";
 import { fallbackImageFor } from "@/lib/product-assets";
@@ -57,7 +57,133 @@ function OrderForm() {
   const [email, setEmail] = useState(user?.email ?? "");
   const [address, setAddress] = useState("");
   const [payment, setPayment] = useState<"online" | "in_person">("in_person");
+  const [rememberPaymentMethod, setRememberPaymentMethod] = useState(false);
+  const [paymentLabel, setPaymentLabel] = useState("");
+  const [squareConfig, setSquareConfig] = useState<{ connected: boolean; appId: string; locationId: string; sandbox: boolean } | null>(null);
+  const [squareLoading, setSquareLoading] = useState(false);
+  const [squareError, setSquareError] = useState<string | null>(null);
+  const [squareCard, setSquareCard] = useState<any>(null);
+  const [squareReady, setSquareReady] = useState(false);
+  const [cardTokenizing, setCardTokenizing] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const { data: savedPaymentSettings } = useQuery({
+    queryKey: ["user-payment-settings", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data } = await supabase.from("site_settings").select("value").eq("key", `user_payment_${user!.id}`).maybeSingle();
+      return (data?.value ?? null) as Record<string, any> | null;
+    },
+  });
+
+  useEffect(() => {
+    if (!savedPaymentSettings) return;
+    if (savedPaymentSettings.payment_method === "online" && features.online_payments === true) {
+      setPayment("online");
+    }
+    if (savedPaymentSettings.payment_label) {
+      setPaymentLabel(savedPaymentSettings.payment_label);
+    }
+  }, [savedPaymentSettings, features.online_payments]);
+
+  useEffect(() => {
+    if (payment !== "online" || !features.online_payments) return;
+    let mounted = true;
+
+    async function loadSquareConfig() {
+      setSquareLoading(true);
+      setSquareError(null);
+      try {
+        const response = await fetch("/api/square/config");
+        const json = await response.json();
+        if (!response.ok || !json.connected) {
+          throw new Error(json.error || "Online payments are not set up yet.");
+        }
+        if (mounted) {
+          setSquareConfig({
+            connected: true,
+            appId: json.appId,
+            locationId: json.locationId,
+            sandbox: json.sandbox === true,
+          });
+        }
+      } catch (error: any) {
+        if (!mounted) return;
+        setSquareError(error.message ?? String(error));
+      } finally {
+        if (mounted) setSquareLoading(false);
+      }
+    }
+
+    loadSquareConfig();
+
+    return () => {
+      mounted = false;
+    };
+  }, [payment, features.online_payments]);
+
+  useEffect(() => {
+    if (!squareConfig?.connected) {
+      setSquareReady(false);
+      return;
+    }
+
+    if (typeof window === "undefined") return;
+
+    let mounted = true;
+    let attachedCard: any;
+
+    async function loadSquareScript(src: string) {
+      const existing = document.getElementById("square-sdk");
+      if (existing) {
+        if ((window as any).Square) return;
+        await new Promise((resolve, reject) => {
+          existing.addEventListener("load", resolve);
+          existing.addEventListener("error", () => reject(new Error("Square script failed to load")));
+        });
+        return;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const script = document.createElement("script");
+        script.id = "square-sdk";
+        script.src = src;
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("Square script failed to load"));
+        document.head.appendChild(script);
+      });
+    }
+
+    async function initSquareCard() {
+      try {
+        const sdkUrl = squareConfig.sandbox
+          ? "https://sandbox.web.squarecdn.com/v1/square.js"
+          : "https://web.squarecdn.com/v1/square.js";
+        await loadSquareScript(sdkUrl);
+        if (!mounted) return;
+        const payments = (window as any).Square.payments(squareConfig.appId, squareConfig.locationId);
+        const card = await payments.card();
+        attachedCard = card;
+        await card.attach("#square-card");
+        if (!mounted) return;
+        setSquareCard(card);
+        setSquareReady(true);
+      } catch (error: any) {
+        if (!mounted) return;
+        setSquareError(error.message ?? String(error));
+      }
+    }
+
+    initSquareCard();
+
+    return () => {
+      mounted = false;
+      if (attachedCard?.destroy) {
+        attachedCard.destroy();
+      }
+    };
+  }, [squareConfig]);
 
   const sizes = useMemo(() =>
     (product?.product_sizes ?? []).sort((a: any, b: any) => a.sort_order - b.sort_order),
@@ -84,7 +210,81 @@ function OrderForm() {
     if (!user) return;
     if (!date) { toast.error("Please choose a date"); return; }
     if (fulfillment === "delivery" && !address) { toast.error("Please enter a delivery address"); return; }
+    if (payment === "online" && !features.online_payments) {
+      toast.error("Online payments are not enabled on this site.");
+      return;
+    }
+
+    let paymentNote = "";
     setBusy(true);
+
+    if (payment === "online") {
+      if (!squareConfig?.connected) {
+        toast.error("Online payments are not configured yet. Please choose pay in person.");
+        setBusy(false);
+        return;
+      }
+      if (!squareReady || !squareCard) {
+        toast.error("Payment form is still loading. Please wait a moment.");
+        setBusy(false);
+        return;
+      }
+
+      setCardTokenizing(true);
+      const cardResult = await squareCard.tokenize();
+      setCardTokenizing(false);
+
+      if (cardResult.status !== "OK") {
+        const message = cardResult.errors?.[0]?.message ?? "Card authorization failed.";
+        toast.error(message);
+        setBusy(false);
+        return;
+      }
+
+      const paymentResponse = await fetch("/api/square/pay", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceId: cardResult.token,
+          amountCents: total,
+          customerEmail: email,
+          customerName: fullName,
+          savePaymentMethod: rememberPaymentMethod,
+          userId: user.id,
+        }),
+      });
+      const paymentResult = await paymentResponse.json();
+      if (!paymentResponse.ok || !paymentResult.success) {
+        toast.error(paymentResult.error || "Payment failed. Please try a different card or pay in person.");
+        setBusy(false);
+        return;
+      }
+
+      const cardInfo = paymentResult.card ?? {};
+      const last4 = cardInfo.last_4 ?? cardInfo.last4 ?? "";
+      const brand = cardInfo.card_brand ?? cardInfo.brand ?? "Card";
+      if (rememberPaymentMethod) {
+        const { error: saveError } = await supabase.from("site_settings").upsert({
+          key: `user_payment_${user.id}`,
+          value: {
+            payment_method: "online",
+            payment_label: paymentLabel || `${brand} ending ${last4}`,
+            payment_brand: brand,
+            payment_last4: last4,
+            saved_payment: true,
+          },
+        }, { onConflict: ["key"] });
+        if (saveError) {
+          console.warn("Failed to save remembered payment method:", saveError.message);
+        }
+      }
+
+      paymentNote = `Square payment ${paymentResult.payment?.id ?? ""}`;
+      if (paymentResult.payment?.receipt_url) {
+        paymentNote += ` receipt: ${paymentResult.payment.receipt_url}`;
+      }
+    }
+
     const { error } = await supabase.from("orders").insert({
       user_id: user.id,
       product_id: product!.id,
@@ -105,9 +305,11 @@ function OrderForm() {
       email,
       payment_method: payment,
       status: "new",
+      admin_notes: paymentNote,
     });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
+
     toast.success("Order placed! We'll be in touch shortly.");
     navigate({ to: "/account" });
   }
@@ -247,7 +449,7 @@ function OrderForm() {
 
           <section>
             <h2 className="font-display text-2xl mb-4">Payment</h2>
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
               {payInPersonEnabled && (
                 <button type="button" onClick={() => setPayment("in_person")}
                   className={`rounded-md border px-4 py-2 text-sm ${payment === "in_person" ? "border-primary bg-primary/5" : "border-border"}`}>
@@ -261,12 +463,40 @@ function OrderForm() {
                 </button>
               )}
             </div>
-            {payment === "online" && (
-              <p className="mt-3 text-xs text-muted-foreground">Online payments will be finalized after submission.</p>
+
+            {payment === "online" ? (
+              <div className="mt-6 space-y-4 rounded-lg border border-border bg-card p-5">
+                <p className="text-sm text-muted-foreground">Secure card entry is provided by Square. Your card is authorized during checkout.</p>
+                {squareLoading && <p className="text-sm text-muted-foreground">Loading payment form…</p>}
+                {squareError && <p className="text-sm text-destructive">{squareError}</p>}
+                {savedPaymentSettings?.payment_last4 ? (
+                  <p className="text-sm">Saved payment method: <strong>{savedPaymentSettings.payment_brand ?? "Card"} ending {savedPaymentSettings.payment_last4}</strong></p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Enter your card details below to pay online. You can save this payment method for future orders.</p>
+                )}
+                <div id="square-card" className="min-h-[220px]"></div>
+                <label className="flex items-center gap-3 text-sm">
+                  <input type="checkbox" checked={rememberPaymentMethod} onChange={(e) => setRememberPaymentMethod(e.target.checked)} />
+                  Remember this payment method for future orders
+                </label>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm mb-1.5">Card label</label>
+                    <input value={paymentLabel} onChange={(e) => setPaymentLabel(e.target.value)} placeholder="My card or account name"
+                      className="w-full rounded-md border border-input px-3 py-2 text-sm" />
+                    <p className="text-xs text-muted-foreground mt-1">Give this card a name like “Personal card” or “Business debit”.</p>
+                  </div>
+                </div>
+                {(squareReady && !squareError) ? (
+                  <p className="text-xs text-muted-foreground">When you click Place order, your card will be securely authorized by Square.</p>
+                ) : null}
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-muted-foreground">Choose pay in person and bring payment when your order is ready.</p>
             )}
           </section>
 
-          <Button type="submit" disabled={busy} size="lg" className="w-full sm:w-auto">
+          <Button type="submit" disabled={busy || (payment === "online" && (squareLoading || !!squareError))} size="lg" className="w-full sm:w-auto">
             {busy ? "Placing order…" : "Place order"}
           </Button>
         </form>

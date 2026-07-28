@@ -10,11 +10,6 @@ export const Route = createFileRoute("/_authenticated/account/edit")({
   component: EditProfile,
 });
 
-function maskPaymentValue(value: string) {
-  if (!value) return "";
-  return value.length <= 4 ? "••••" : `•••• ${value.slice(-4)}`;
-}
-
 function EditProfile() {
   const { user, profile, loading } = useAuth();
   const navigate = useNavigate();
@@ -23,9 +18,8 @@ function EditProfile() {
   const [birthdate, setBirthdate] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"online" | "in_person">("in_person");
   const [paymentLabel, setPaymentLabel] = useState("");
-  const [paymentToken, setPaymentToken] = useState("");
-  const [savedToken, setSavedToken] = useState("");
-  const [showToken, setShowToken] = useState(false);
+  const [paymentBrand, setPaymentBrand] = useState("");
+  const [paymentLast4, setPaymentLast4] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -42,7 +36,8 @@ function EditProfile() {
       if (paymentSettings) {
         setPaymentMethod(paymentSettings.payment_method === "online" ? "online" : "in_person");
         setPaymentLabel(paymentSettings.payment_label ?? "");
-        setSavedToken(paymentSettings.payment_token ?? "");
+        setPaymentBrand(paymentSettings.payment_brand ?? "");
+        setPaymentLast4(paymentSettings.payment_last4 ?? "");
       }
     })();
   }, [user, profile]);
@@ -65,12 +60,9 @@ function EditProfile() {
       const paymentValue: Record<string, any> = {
         payment_method: paymentMethod,
         payment_label: paymentLabel,
+        payment_brand: paymentBrand || undefined,
+        payment_last4: paymentLast4 || undefined,
       };
-      if (paymentToken) {
-        paymentValue.payment_token = paymentToken;
-      } else if (savedToken) {
-        paymentValue.payment_token = savedToken;
-      }
 
       const { error: paymentError } = await supabase.from("site_settings").upsert({ key: `user_payment_${user.id}`, value: paymentValue }, { onConflict: ["key"] });
       if (paymentError) throw paymentError;
@@ -120,24 +112,17 @@ function EditProfile() {
             </div>
           </div>
           {paymentMethod === "online" && (
-            <div className="mt-4">
-              <label className="block text-sm mb-1.5">Payment keychain secret</label>
-              <div className="flex gap-2 items-center">
-                <input
-                  value={paymentToken}
-                  type={showToken ? "text" : "password"}
-                  placeholder={savedToken ? "Leave blank to keep existing secret" : "Enter a payment secret"}
-                  onChange={(e) => setPaymentToken(e.target.value)}
-                  className="w-full rounded-md border border-input px-3 py-2 text-sm"
-                />
-                <Button size="sm" variant="outline" onClick={() => setShowToken((prev) => !prev)}>
-                  {showToken ? "Hide" : "Show"}
-                </Button>
+            <div className="mt-4 space-y-3">
+              <div>
+                <p className="text-sm text-muted-foreground">Your saved card details are managed during checkout, and this profile remembers your preferred online payment method.</p>
               </div>
-              {savedToken ? (
-                <p className="text-xs text-muted-foreground mt-2">Saved secret: {maskPaymentValue(savedToken)}</p>
+              {paymentLast4 ? (
+                <div className="rounded-md border border-border p-4 bg-secondary/10">
+                  <p className="text-sm">Saved payment method: <strong>{paymentBrand || "Card"} ending {paymentLast4}</strong></p>
+                  <p className="text-xs text-muted-foreground">To update this card, place a new order and save the payment method during checkout.</p>
+                </div>
               ) : (
-                <p className="text-xs text-muted-foreground mt-2">Your secret is stored securely and shown masked.</p>
+                <p className="text-sm text-muted-foreground">Enter card details during checkout to save a card for future orders.</p>
               )}
             </div>
           )}

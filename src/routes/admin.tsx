@@ -1057,14 +1057,16 @@ function UsersTab() {
             const isAdmin = isAdminEmail(u.email) || (u.user_roles ?? []).some((r: any) => r.role === "admin");
             const paymentMethod = u.payment_settings?.payment_method ?? "in_person";
             const paymentLabel = u.payment_settings?.payment_label ?? "";
-            const paymentSaved = !!u.payment_settings?.payment_token;
+            const paymentSaved = !!u.payment_settings?.payment_last4;
+            const paymentCardBrand = u.payment_settings?.payment_brand ?? "Card";
+            const paymentLast4 = u.payment_settings?.payment_last4 ?? "";
             return (
               <div key={u.id} className="rounded-lg border border-border bg-card p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-medium">{u.full_name || "(no name)"} {u.birthdate && <span className="text-sm text-muted-foreground">· Born {new Date(u.birthdate).toLocaleDateString()}</span>}</p>
                     <p className="text-sm text-muted-foreground">{u.email}</p>
-                    <p className="text-sm text-muted-foreground mt-1">Payment: <strong>{paymentMethod === "online" ? `Online${paymentLabel ? ` (${paymentLabel})` : ""}` : "In person"}</strong>{paymentSaved ? " · Saved secret" : ""}</p>
+                    <p className="text-sm text-muted-foreground mt-1">Payment: <strong>{paymentMethod === "online" ? `Online${paymentLabel ? ` (${paymentLabel})` : ""}` : "In person"}</strong>{paymentSaved ? ` · ${paymentCardBrand} ending ${paymentLast4}` : ""}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {isAdmin && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-accent text-accent-foreground">Admin</span>}
