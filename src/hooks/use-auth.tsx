@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { isAdminEmail } from "@/lib/admin";
 
 type Profile = { full_name: string | null; phone: string | null; email?: string | null; birthdate?: string | null } | null;
 
@@ -42,7 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function loadExtras(userId: string, email?: string | null) {
     try {
-      const ownerEmail = import.meta.env.VITE_OWNER_EMAIL?.toLowerCase?.() ?? "joyfulmorningblooms@gmail.com";
       const { data, error } = await supabase
         .from("profiles")
         .select("id, email, full_name, phone, birthdate")
@@ -64,13 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
       setProfile(profileData);
 
-      const isOwner = !!email && email.toLowerCase() === ownerEmail;
       const hasAdminRole = !roleError && Array.isArray(roleRows) && roleRows.some((role: any) => role?.role === "admin");
-      setIsAdmin(isOwner || hasAdminRole);
+      setIsAdmin(isAdminEmail(email) || hasAdminRole);
     } catch (err) {
       console.warn("Load auth extras failed:", err);
-      const isOwner = !!email && email.toLowerCase() === import.meta.env.VITE_OWNER_EMAIL?.toLowerCase?.();
-      setIsAdmin(isOwner);
+      setIsAdmin(isAdminEmail(email));
     }
   }
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { isAdminEmail } from "@/lib/admin";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -16,8 +17,7 @@ export const Route = createFileRoute("/admin/edit-home")({
 function EditHome() {
   const { user, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
-  const ownerEmail = import.meta.env.VITE_OWNER_EMAIL?.toLowerCase?.() ?? "joyfulmorningblooms@gmail.com";
-  const allowed = !!user && (isAdmin || (user.email && user.email.toLowerCase() === ownerEmail));
+  const allowed = !!user && (isAdmin || isAdminEmail(user.email));
 
   const { data: content, refetch } = useQuery({
     queryKey: ["site_content", "home"],

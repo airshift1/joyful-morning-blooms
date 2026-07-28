@@ -2,6 +2,7 @@ import { createFileRoute, redirect, Link, Outlet, useRouter } from "@tanstack/re
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { isAdminEmail } from "@/lib/admin";
 import { formatMoney, formatDate } from "@/lib/format";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -879,7 +880,6 @@ function BrandingTab() {
 }
 
 function UsersTab() {
-  const ownerEmail = import.meta.env.VITE_OWNER_EMAIL?.toLowerCase?.() ?? "";
   const [query, setQuery] = useState("");
   const { data: rows, refetch, isLoading } = useQuery({
     queryKey: ["admin-users", query],
@@ -943,9 +943,8 @@ function UsersTab() {
 
   const list = rows ?? [];
   const admins = list.filter((u: any) => {
-    const emailMatchesOwner = !!u.email && u.email.toLowerCase() === ownerEmail;
     const hasAdminRole = (u.user_roles ?? []).some((r: any) => r.role === "admin");
-    return emailMatchesOwner || hasAdminRole;
+    return isAdminEmail(u.email) || hasAdminRole;
   });
   const regularUsers = list.length - admins.length;
 
@@ -981,7 +980,7 @@ function UsersTab() {
       ) : (
         <div className="space-y-3">
           {list.map((u: any) => {
-            const isAdmin = !!u.email && u.email.toLowerCase() === ownerEmail || (u.user_roles ?? []).some((r: any) => r.role === "admin");
+            const isAdmin = isAdminEmail(u.email) || (u.user_roles ?? []).some((r: any) => r.role === "admin");
             return (
               <div key={u.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4">
                 <div>
