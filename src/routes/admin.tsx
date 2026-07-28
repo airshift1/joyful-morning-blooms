@@ -925,7 +925,6 @@ function SettingsTab() {
                 toast.error('Square test failed: ' + (json?.details?.message ?? json?.error ?? JSON.stringify(json)));
               } else {
                 toast.success('Square test succeeded — found ' + (json.locations?.length ?? 0) + ' locations');
-                // show a small dialog with location names
                 const names = (json.locations ?? []).map((l: any) => `${l.name} (${l.id})`).join('\n');
                 if (names) alert('Square locations:\n' + names);
               }
@@ -936,6 +935,30 @@ function SettingsTab() {
               if (btn) btn.disabled = false;
             }
           }}>Test Square connection</Button>
+          {isConnected && squareAppId.toLowerCase().includes('sandbox') && (
+            <Button variant="destructive" onClick={async () => {
+              if (!confirm('Run a $1.00 sandbox test payment? This will create a payment in Square sandbox.')) return;
+              try {
+                const btn = document.activeElement as HTMLButtonElement | null;
+                if (btn) btn.disabled = true;
+                const res = await fetch('/api/square/test-payment', { method: 'POST' });
+                const json = await res.json().catch(() => ({ ok: false, error: 'Invalid JSON response' }));
+                if (!res.ok || !json.ok) {
+                  toast.error('Sandbox payment failed: ' + (json?.details?.message ?? json?.error ?? JSON.stringify(json)));
+                } else {
+                  toast.success('Sandbox payment succeeded — id: ' + (json.payment?.id ?? 'unknown'));
+                  alert('Sandbox payment result:\n' + JSON.stringify(json.payment, null, 2));
+                }
+              } catch (e: any) {
+                toast.error('Sandbox payment error: ' + (e?.message ?? String(e)));
+              } finally {
+                const btn = document.activeElement as HTMLButtonElement | null;
+                if (btn) btn.disabled = false;
+              }
+            }}>Run sandbox payment test</Button>
+          )}
+        </div>
+      </section>
         </div>
       </section>
     </div>
