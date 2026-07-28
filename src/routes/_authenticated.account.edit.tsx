@@ -121,12 +121,12 @@ function EditProfile() {
           </div>
           {paymentMethod === "online" && (
             <div className="mt-4">
-              <label className="block text-sm mb-1.5">Payment keychain secret</label>
+              <label className="block text-sm mb-1.5">Payment key / secret</label>
               <div className="flex gap-2 items-center">
                 <input
                   value={paymentToken}
                   type={showToken ? "text" : "password"}
-                  placeholder={savedToken ? "Leave blank to keep existing secret" : "Enter a payment secret"}
+                  placeholder={savedToken ? "Leave blank to keep your existing key" : "Enter a payment key or secret"}
                   onChange={(e) => setPaymentToken(e.target.value)}
                   className="w-full rounded-md border border-input px-3 py-2 text-sm"
                 />
@@ -136,7 +136,7 @@ function EditProfile() {
               </div>
               {savedToken ? (
                 <div className="flex items-center gap-2 mt-2">
-                  <p className="text-xs text-muted-foreground">Saved secret: {maskPaymentValue(savedToken)}</p>
+                  <p className="text-xs text-muted-foreground">Saved key: {maskPaymentValue(savedToken)}</p>
                   <Button size="sm" variant="destructive" onClick={async () => {
                     if (!confirm('Delete saved payment information?')) return;
                     try {
@@ -148,7 +148,7 @@ function EditProfile() {
                   }}>Delete</Button>
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground mt-2">Your secret is stored securely and shown masked.</p>
+                <p className="text-xs text-muted-foreground mt-2">This is stored privately and shown masked for your protection.</p>
               )}
             </div>
           )}

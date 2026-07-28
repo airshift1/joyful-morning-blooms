@@ -959,8 +959,6 @@ function SettingsTab() {
           )}
         </div>
       </section>
-        </div>
-      </section>
     </div>
   );
 }
