@@ -49,7 +49,7 @@ import { createClient } from "@supabase/supabase-js";
 function getServerSupabase() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_KEY;
-  if (!url || !key) throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables for server-side operations.");
+  if (!url || !key) return null;
   return createClient(url, key, { global: { fetch } });
 }
 
@@ -59,6 +59,10 @@ async function resolveSquareCredentials(supabase: ReturnType<typeof getServerSup
     app_id: process.env.SQUARE_APP_ID ?? null,
     location_id: process.env.SQUARE_LOCATION_ID ?? null,
   };
+
+  if (!supabase) {
+    return envCreds;
+  }
 
   try {
     const { data: row } = await supabase.from("admin_settings").select("setting_value").eq("id", "square").maybeSingle();
