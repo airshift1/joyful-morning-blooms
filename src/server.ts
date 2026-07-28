@@ -129,16 +129,8 @@ async function handleSquareApi(request: Request): Promise<Response | null> {
       if (!creds.access_token || !creds.app_id) {
         return new Response(JSON.stringify({ ok: false, message: "Square not configured" }), { status: 400, headers: { "content-type": "application/json" } });
       }
-      const appId = (creds.app_id || "").toString().toLowerCase();
-      // Allow test-payment only for sandbox app ids
-      if (!appId.includes("sandbox")) {
-        return new Response(JSON.stringify({ ok: false, message: "Test payments allowed only for sandbox Square apps" }), { status: 403, headers: { "content-type": "application/json" } });
-      }
-
       const accessToken = creds.access_token;
-      // Use Square sandbox endpoint
-      const sandboxUrl = "https://connect.squareupsandbox.com/v2/payments";
-      // Use Square sandbox card nonce for testing
+      const liveUrl = "https://connect.squareup.com/v2/payments";
       const sourceId = "cnon:card-nonce-ok";
       const amountCents = 100; // $1.00
       const idempotencyKey = crypto.randomUUID();
@@ -151,7 +143,7 @@ async function handleSquareApi(request: Request): Promise<Response | null> {
         location_id: creds.location_id ?? undefined,
       };
 
-      const res = await fetch(sandboxUrl, {
+      const res = await fetch(liveUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -162,7 +154,7 @@ async function handleSquareApi(request: Request): Promise<Response | null> {
 
       const resJson = await res.json().catch(() => null);
       if (!res.ok) {
-        console.error("Square sandbox payment error:", resJson);
+        console.error("Square live payment error:", resJson);
         return new Response(JSON.stringify({ ok: false, status: res.status, details: resJson }), { status: 502, headers: { "content-type": "application/json" } });
       }
 
