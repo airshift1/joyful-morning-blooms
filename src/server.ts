@@ -71,6 +71,35 @@ async function handleSquareApi(request: Request): Promise<Response | null> {
     }
   }
 
+  if (url.pathname === "/api/square/test" && request.method.toUpperCase() === "GET") {
+    try {
+      const { data: row } = await supabase.from("admin_settings").select("setting_value").eq("id", "square").maybeSingle();
+      const creds = row?.setting_value ?? null;
+      if (!creds || !creds.access_token) {
+        return new Response(JSON.stringify({ ok: false, message: "Square not configured" }), { status: 400, headers: { "content-type": "application/json" } });
+      }
+      const accessToken = creds.access_token;
+      // lightweight check: fetch locations
+      const res = await fetch("https://connect.squareup.com/v2/locations", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+        },
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        console.error("Square test fetch failed:", json);
+        return new Response(JSON.stringify({ ok: false, status: res.status, details: json }), { status: 502, headers: { "content-type": "application/json" } });
+      }
+      const locations = Array.isArray(json?.locations) ? json.locations.map((l: any) => ({ id: l.id, name: l.name, status: l.status })) : [];
+      return new Response(JSON.stringify({ ok: true, locations }), { status: 200, headers: { "content-type": "application/json" } });
+    } catch (e) {
+      console.error("Error in /api/square/test:", e);
+      return new Response(JSON.stringify({ ok: false, error: String(e) }), { status: 500, headers: { "content-type": "application/json" } });
+    }
+  }
+
   if (url.pathname === "/api/square/pay" && request.method.toUpperCase() === "POST") {
     try {
       const body = await request.json().catch(() => null);

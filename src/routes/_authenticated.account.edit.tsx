@@ -135,7 +135,18 @@ function EditProfile() {
                 </Button>
               </div>
               {savedToken ? (
-                <p className="text-xs text-muted-foreground mt-2">Saved secret: {maskPaymentValue(savedToken)}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <p className="text-xs text-muted-foreground">Saved secret: {maskPaymentValue(savedToken)}</p>
+                  <Button size="sm" variant="destructive" onClick={async () => {
+                    if (!confirm('Delete saved payment information?')) return;
+                    try {
+                      const { error } = await supabase.from('site_settings').delete().eq('key', `user_payment_${user.id}`);
+                      if (error) { toast.error(error.message); return; }
+                      setSavedToken('');
+                      toast.success('Deleted saved payment information');
+                    } catch (e: any) { toast.error(e?.message ?? 'Failed to delete'); }
+                  }}>Delete</Button>
+                </div>
               ) : (
                 <p className="text-xs text-muted-foreground mt-2">Your secret is stored securely and shown masked.</p>
               )}

@@ -99,10 +99,11 @@ function OrderForm() {
           setSquareConnected(true);
           setSquareAppId(json.app_id);
           setSquareLocationId(json.location_id);
-          // dynamically load the Square script (only in browser)
+        // dynamically load the Square script (only in browser). We'll choose sandbox vs prod based on the app_id.
           if (!(window as any).Square) {
             const script = document.createElement('script');
-            script.src = 'https://web.squarecdn.com/v1/square.js';
+            const isSandbox = (json.app_id || '').toString().toLowerCase().includes('sandbox');
+            script.src = isSandbox ? 'https://sandbox.web.squarecdn.com/v1/square.js' : 'https://web.squarecdn.com/v1/square.js';
             script.async = true;
             script.onload = () => setSquareLoaded(true);
             script.onerror = () => { console.error('Failed to load square.js'); setSquareLoaded(false); };

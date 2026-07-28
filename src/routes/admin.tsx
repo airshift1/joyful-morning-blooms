@@ -915,6 +915,27 @@ function SettingsTab() {
         <div className="mt-4 flex flex-wrap gap-3">
           <Button onClick={handleSaveSquareSettings} disabled={isSaving}>{isSaving ? "Saving..." : "Save Square credentials"}</Button>
           {isConnected && <Button variant="outline" onClick={handleDisconnectSquare}>Disconnect Square</Button>}
+          <Button variant="ghost" onClick={async () => {
+            try {
+              const btn = document.activeElement as HTMLButtonElement | null;
+              if (btn) btn.disabled = true;
+              const res = await fetch('/api/square/test');
+              const json = await res.json().catch(() => ({ ok: false, error: 'Invalid JSON response' }));
+              if (!res.ok || !json.ok) {
+                toast.error('Square test failed: ' + (json?.details?.message ?? json?.error ?? JSON.stringify(json)));
+              } else {
+                toast.success('Square test succeeded — found ' + (json.locations?.length ?? 0) + ' locations');
+                // show a small dialog with location names
+                const names = (json.locations ?? []).map((l: any) => `${l.name} (${l.id})`).join('\n');
+                if (names) alert('Square locations:\n' + names);
+              }
+            } catch (e: any) {
+              toast.error('Square test error: ' + (e?.message ?? String(e)));
+            } finally {
+              const btn = document.activeElement as HTMLButtonElement | null;
+              if (btn) btn.disabled = false;
+            }
+          }}>Test Square connection</Button>
         </div>
       </section>
     </div>
