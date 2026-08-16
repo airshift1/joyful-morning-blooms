@@ -17,6 +17,7 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Seasonal, hand-tied bouquets and custom arrangements. Order online" },
       { property: "og:title", content: "Joyful Morning Blooms — Handcrafted florals for life's moments" },
       { property: "og:description", content: "Seasonal, hand-tied bouquets and custom arrangements. Order online" },
+      { name: "google-site-verification", content: "OTLTIUD1RbsaEorxWUhzrMurawAoioXbBU8ev6Ikjxc" },
     ],
   }),
   component: Home,
@@ -30,6 +31,7 @@ function Home() {
       return (data?.value ?? {}) as Record<string, string>;
     },
   });
+
   const { data: featured } = useQuery({
     queryKey: ["featured-products"],
     queryFn: async () => {
@@ -43,15 +45,19 @@ function Home() {
       return data ?? [];
     },
   });
+
   const { data: settings } = useQuery({
     queryKey: ["home-settings"],
     queryFn: async () => {
       const { data } = await supabase.from("site_settings").select("key, value");
       const m: Record<string, any> = {};
-      (data ?? []).forEach((r: any) => { m[r.key] = r.value; });
+      (data ?? []).forEach((r: any) => {
+        m[r.key] = r.value;
+      });
       return m;
     },
   });
+
   const { data: subContent } = useQuery({
     queryKey: ["site_content", "subscription"],
     queryFn: async () => {
@@ -59,9 +65,9 @@ function Home() {
       return (data?.value ?? {}) as Record<string, string>;
     },
   });
+
   const features = (settings?.features ?? {}) as Record<string, boolean>;
   const subscriptionOn = features.monthly_subscription === true;
-
   const c = content ?? {};
 
   return (
@@ -121,6 +127,7 @@ function Home() {
             const photo = p.product_photos?.[0]?.storage_path
               ? productPhotoUrl(p.product_photos[0].storage_path)
               : fallbackImageFor(p.slug);
+
             return (
               <Link key={p.id} to="/shop/$slug" params={{ slug: p.slug }} className="group">
                 <div className="overflow-hidden rounded-lg bg-secondary/40">
@@ -144,7 +151,6 @@ function Home() {
         </div>
       </section>
 
-
       {subscriptionOn && (
         <section className="container-editorial py-16 md:py-24 border-t border-border/60">
           <div className="rounded-2xl bg-secondary/40 p-10 md:p-16 text-center">
@@ -155,7 +161,9 @@ function Home() {
             </p>
             {subContent?.price && <p className="mt-4 font-display text-2xl">{subContent.price}</p>}
             <div className="mt-8">
-              <Button asChild size="lg"><Link to="/contact">{subContent?.cta ?? "Subscribe"}</Link></Button>
+              <Button asChild size="lg">
+                <Link to="/contact">{subContent?.cta ?? "Subscribe"}</Link>
+              </Button>
             </div>
           </div>
         </section>
