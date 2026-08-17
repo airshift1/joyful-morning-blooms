@@ -21,14 +21,16 @@ export const Route = createFileRoute("/admin")({
 
 function AdminGate() {
   const { user, isAdmin, loading, refreshAuthState } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      void refreshAuthState();
+    if (user && !loading) {
+      setIsRefreshing(true);
+      refreshAuthState().finally(() => setIsRefreshing(false));
     }
-  }, [user?.id, user?.email, refreshAuthState]);
+  }, [user?.id, user?.email]);
 
-  if (loading) return <div className="container-editorial py-24">Loading…</div>;
+  if (loading || isRefreshing) return <div className="container-editorial py-24">Loading…</div>;
   if (!user) {
     return (
       <div className="container-editorial py-24 max-w-md">
