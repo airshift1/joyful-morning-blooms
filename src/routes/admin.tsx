@@ -22,6 +22,7 @@ export const Route = createFileRoute("/admin")({
 function AdminGate() {
   const { user, isAdmin, loading, refreshAuthState } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const effectiveIsAdmin = isAdmin || isAdminEmail(user?.email);
 
   useEffect(() => {
     if (user && !loading) {
@@ -40,7 +41,7 @@ function AdminGate() {
       </div>
     );
   }
-  if (!isAdmin) {
+  if (!effectiveIsAdmin) {
     return (
       <div className="container-editorial py-24 max-w-md">
         <h1 className="font-display text-3xl">Not authorized</h1>

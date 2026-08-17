@@ -44,6 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function loadExtras(userId: string, email?: string | null) {
+    const emailIsAdmin = isAdminEmail(email);
+    setIsAdmin(emailIsAdmin);
+
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -70,10 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const value = String(role?.role ?? "").toLowerCase();
         return ["admin", "owner", "staff"].includes(value);
       });
-      setIsAdmin(isAdminEmail(email) || hasAdminRole);
+      setIsAdmin(emailIsAdmin || hasAdminRole);
     } catch (err) {
       console.warn("Load auth extras failed:", err);
-      setIsAdmin(isAdminEmail(email));
+      setIsAdmin(emailIsAdmin);
     }
   }
 
@@ -85,6 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const emailIsAdmin = isAdminEmail(currentUser.email);
+    setIsAdmin(emailIsAdmin);
     await ensureProfile(currentUser);
     await loadExtras(currentUser.id, currentUser.email);
   }
