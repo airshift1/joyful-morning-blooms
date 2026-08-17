@@ -1,0 +1,3 @@
+﻿Requirement already satisfied: pip in .\venv_coqui\Lib\site-packages (26.2.1)
+Requirement already satisfied: setuptools in .\venv_coqui\Lib\site-packages (84.0.0)
+Requirement already satisfied: wheel in .\venv_coqui\Lib\site-packages (0.48.0)

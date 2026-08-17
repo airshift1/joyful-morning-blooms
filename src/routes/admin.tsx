@@ -56,11 +56,12 @@ function AdminDashboard() {
       <h1 className="mt-2 font-display text-4xl md:text-5xl">Studio dashboard</h1>
 
       <Tabs defaultValue="orders" className="mt-8">
-        <TabsList>
+        <TabsList className="flex flex-wrap justify-start gap-2">
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
           <TabsTrigger value="comments">Comments</TabsTrigger>
+          <TabsTrigger value="inbox">Inbox</TabsTrigger>
           <TabsTrigger value="pages">Pages</TabsTrigger>
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="branding">Branding</TabsTrigger>
@@ -71,6 +72,7 @@ function AdminDashboard() {
         <TabsContent value="products"><ProductsTab /></TabsContent>
         <TabsContent value="reviews"><ReviewsTab /></TabsContent>
         <TabsContent value="comments"><CommentsTab /></TabsContent>
+        <TabsContent value="inbox"><InboxTab /></TabsContent>
         <TabsContent value="pages"><PagesTab /></TabsContent>
         <TabsContent value="content"><ContentTab /></TabsContent>
         <TabsContent value="branding"><BrandingTab /></TabsContent>
@@ -306,7 +308,24 @@ function PagesTab() {
           }
           throw error;
         }
-        return data ?? [];
+        const pagesList = data ?? [];
+        // load optional pages ordering (admin-only preference)
+        try {
+          const { data: orderRow } = await supabase.from("site_settings").select("value").eq("key", "pages_order").maybeSingle();
+          const order = (orderRow?.value ?? null) as string[] | null;
+          if (Array.isArray(order) && order.length > 0) {
+            const byId: Record<string, any> = {};
+            pagesList.forEach((p: any) => { byId[p.id] = p; });
+            const ordered: any[] = [];
+            order.forEach((id: string) => { if (byId[id]) { ordered.push(byId[id]); delete byId[id]; } });
+            // append any pages not in the order list
+            Object.values(byId).forEach((p: any) => ordered.push(p));
+            return ordered;
+          }
+        } catch (e) {
+          console.warn("Failed to load pages_order", e);
+        }
+        return pagesList;
       } catch (e) {
         console.error("Error loading pages:", e);
         return null;
@@ -318,6 +337,7 @@ function PagesTab() {
     const slug = prompt("Slug for the new page (e.g. 'home', 'about', 'contact')")?.trim();
     if (!slug) return;
     const title = prompt("Page title", slug) ?? slug;
+    const position = prompt("Insert position: 'start' or 'end' (leave blank for end)");
     const id = crypto.randomUUID();
     const { error } = await supabase.from("pages").insert({
       id,
@@ -333,6 +353,23 @@ function PagesTab() {
       toast.error(error.message);
       return;
     }
+
+    // update pages_order in site_settings so admins can control ordering in the admin UI
+    try {
+      const { data: orderRow } = await supabase.from("site_settings").select("value").eq("key", "pages_order").maybeSingle();
+      const order = (orderRow?.value ?? null) as string[] | null;
+      let newOrder: string[] = [];
+      if (Array.isArray(order)) newOrder = [...order];
+      if (position === "start") {
+        newOrder.unshift(id);
+      } else {
+        newOrder.push(id);
+      }
+      await supabase.from("site_settings").upsert({ key: "pages_order", value: newOrder });
+    } catch (e) {
+      console.warn("Failed to update pages_order", e);
+    }
+
     toast.success("Page created");
     refetch();
     setEditing(id);
@@ -384,7 +421,22 @@ function PagesTab() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {pageList.map((page: any) => (
-            <PageCard key={page.id} page={page} isEditing={editing === page.id} onEdit={() => setEditing(page.id)} onClose={() => setEditing(null)} onSave={(updates) => { updatePage(page.id, updates); setEditing(null); }} />
+            <PageCard key={page.id} page={page} isEditing={editing === page.id} onEdit={() => setEditing(page.id)} onClose={() => setEditing(null)} onSave={(updates) => { updatePage(page.id, updates); setEditing(null); }} onDelete={async () => {
+              if (!confirm("Delete this page? This cannot be undone.")) return;
+              const { error } = await supabase.from("pages").delete().eq("id", page.id);
+              if (error) { toast.error(error.message); return; }
+              // remove from pages_order
+              try {
+                const { data: orderRow } = await supabase.from("site_settings").select("value").eq("key", "pages_order").maybeSingle();
+                const order = (orderRow?.value ?? null) as string[] | null;
+                if (Array.isArray(order)) {
+                  const newOrder = order.filter((x: string) => x !== page.id);
+                  await supabase.from("site_settings").upsert({ key: "pages_order", value: newOrder });
+                }
+              } catch (e) { console.warn(e); }
+              toast.success("Page deleted");
+              refetch();
+            }} />
           ))}
         </div>
       )}
@@ -392,7 +444,7 @@ function PagesTab() {
   );
 }
 
-function PageCard({ page, isEditing, onEdit, onClose, onSave }: any) {
+function PageCard({ page, isEditing, onEdit, onClose, onSave, onDelete }: any) {
   const [title, setTitle] = useState(page.title);
   const [subtitle, setSubtitle] = useState(page.subtitle);
   const [content, setContent] = useState(page.content);
@@ -439,7 +491,10 @@ function PageCard({ page, isEditing, onEdit, onClose, onSave }: any) {
               </div>
             )}
           </div>
-          <Button size="sm" onClick={onEdit}>Edit Page</Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={onEdit}>Edit Page</Button>
+            <Button size="sm" variant="destructive" onClick={onDelete}>Delete</Button>
+          </div>
         </div>
       </div>
     );
@@ -862,6 +917,48 @@ function SettingsTab() {
         <div className="mt-4 flex flex-wrap gap-3">
           <Button onClick={handleSaveSquareSettings} disabled={isSaving}>{isSaving ? "Saving..." : "Save Square credentials"}</Button>
           {isConnected && <Button variant="outline" onClick={handleDisconnectSquare}>Disconnect Square</Button>}
+          <Button variant="ghost" onClick={async () => {
+            try {
+              const btn = document.activeElement as HTMLButtonElement | null;
+              if (btn) btn.disabled = true;
+              const res = await fetch('/api/square/test');
+              const json = await res.json().catch(() => ({ ok: false, error: 'Invalid JSON response' }));
+              if (!res.ok || !json.ok) {
+                toast.error('Square test failed: ' + (json?.details?.message ?? json?.error ?? JSON.stringify(json)));
+              } else {
+                toast.success('Square test succeeded — found ' + (json.locations?.length ?? 0) + ' locations');
+                const names = (json.locations ?? []).map((l: any) => `${l.name} (${l.id})`).join('\n');
+                if (names) alert('Square locations:\n' + names);
+              }
+            } catch (e: any) {
+              toast.error('Square test error: ' + (e?.message ?? String(e)));
+            } finally {
+              const btn = document.activeElement as HTMLButtonElement | null;
+              if (btn) btn.disabled = false;
+            }
+          }}>Test Square connection</Button>
+          {isConnected && squareAppId.toLowerCase().includes('sandbox') && (
+            <Button variant="destructive" onClick={async () => {
+              if (!confirm('Run a $1.00 sandbox test payment? This will create a payment in Square sandbox.')) return;
+              try {
+                const btn = document.activeElement as HTMLButtonElement | null;
+                if (btn) btn.disabled = true;
+                const res = await fetch('/api/square/test-payment', { method: 'POST' });
+                const json = await res.json().catch(() => ({ ok: false, error: 'Invalid JSON response' }));
+                if (!res.ok || !json.ok) {
+                  toast.error('Sandbox payment failed: ' + (json?.details?.message ?? json?.error ?? JSON.stringify(json)));
+                } else {
+                  toast.success('Sandbox payment succeeded — id: ' + (json.payment?.id ?? 'unknown'));
+                  alert('Sandbox payment result:\n' + JSON.stringify(json.payment, null, 2));
+                }
+              } catch (e: any) {
+                toast.error('Sandbox payment error: ' + (e?.message ?? String(e)));
+              } finally {
+                const btn = document.activeElement as HTMLButtonElement | null;
+                if (btn) btn.disabled = false;
+              }
+            }}>Run sandbox payment test</Button>
+          )}
         </div>
       </section>
     </div>
@@ -940,16 +1037,17 @@ function UsersTab() {
       try {
         let queryBuilder = supabase
           .from("profiles")
-          .select("id, email, full_name, birthdate")
-          .order("email", { ascending: true });
+          .select("id, email, full_name, phone, created_at, updated_at")
+          .order("created_at", { ascending: false });
 
         if (query && query.trim()) {
           const search = query.trim();
-          queryBuilder = queryBuilder.or(`email.ilike.%${search}%,full_name.ilike.%${search}%`);
+          queryBuilder = queryBuilder.or(`email.ilike.%${search}%,full_name.ilike.%${search}%,phone.ilike.%${search}%`);
         }
 
         const { data: profiles, error: profileError } = await queryBuilder;
         if (profileError) throw profileError;
+
         const profileRows = profiles ?? [];
         const userIds = profileRows.map((row: any) => row.id).filter(Boolean);
 
@@ -964,37 +1062,16 @@ function UsersTab() {
           }
         }
 
-        let paymentRows: any[] = [];
-        if (userIds.length > 0) {
-          const paymentKeys = userIds.map((id) => `user_payment_${id}`);
-          const { data: fetchedPayments, error: paymentError } = await supabase
-            .from("site_settings")
-            .select("key, value")
-            .in("key", paymentKeys);
-          if (!paymentError && Array.isArray(fetchedPayments)) {
-            paymentRows = fetchedPayments;
-          }
-        }
-
         const roleMap: Record<string, any[]> = {};
         roleRows.forEach((role: any) => {
           if (!role.user_id) return;
           roleMap[role.user_id] = [...(roleMap[role.user_id] ?? []), role];
         });
 
-        const paymentMap: Record<string, any> = {};
-        paymentRows.forEach((row: any) => {
-          const match = row.key?.toString().replace(/^user_payment_/, "");
-          if (match) {
-            paymentMap[match] = row.value;
-          }
-        });
-
         return profileRows.map((row: any) => ({
           ...row,
           email: row.email ?? "No email",
           user_roles: roleMap[row.id] ?? [],
-          payment_settings: paymentMap[row.id] ?? null,
         }));
       } catch (err) {
         console.error("Error loading admin users:", err);
@@ -1040,9 +1117,9 @@ function UsersTab() {
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4">
-        <p className="text-sm text-muted-foreground mb-3">Promote accounts to admin, or remove admin access.</p>
+        <p className="text-sm text-muted-foreground mb-3">Search users by name, email, or phone.</p>
         <div className="flex items-center gap-2">
-          <input placeholder="Search by name or email" value={query} onChange={(e) => setQuery(e.target.value)} className="flex-1 rounded-md border border-input px-3 py-2 text-sm" />
+          <input placeholder="Search by name, email, or phone" value={query} onChange={(e) => setQuery(e.target.value)} className="flex-1 rounded-md border border-input px-3 py-2 text-sm" />
           <Button size="sm" onClick={() => refetch()}>Search</Button>
         </div>
       </div>
@@ -1055,16 +1132,16 @@ function UsersTab() {
         <div className="space-y-3">
           {list.map((u: any) => {
             const isAdmin = isAdminEmail(u.email) || (u.user_roles ?? []).some((r: any) => r.role === "admin");
-            const paymentMethod = u.payment_settings?.payment_method ?? "in_person";
-            const paymentLabel = u.payment_settings?.payment_label ?? "";
-            const paymentSaved = !!u.payment_settings?.payment_token;
             return (
               <div key={u.id} className="rounded-lg border border-border bg-card p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="font-medium">{u.full_name || "(no name)"} {u.birthdate && <span className="text-sm text-muted-foreground">· Born {new Date(u.birthdate).toLocaleDateString()}</span>}</p>
+                    <p className="font-medium">{u.full_name || "(no name)"}</p>
                     <p className="text-sm text-muted-foreground">{u.email}</p>
-                    <p className="text-sm text-muted-foreground mt-1">Payment: <strong>{paymentMethod === "online" ? `Online${paymentLabel ? ` (${paymentLabel})` : ""}` : "In person"}</strong>{paymentSaved ? " · Saved secret" : ""}</p>
+                    {u.phone && <p className="text-sm text-muted-foreground">{u.phone}</p>}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Member since {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     {isAdmin && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-accent text-accent-foreground">Admin</span>}
@@ -1082,6 +1159,96 @@ function UsersTab() {
   );
 }
 
+
+function InboxTab() {
+  const { data: rows, refetch } = useQuery({
+    queryKey: ["admin-inbox"],
+    queryFn: async () => {
+      const [{ data: inboxData }, { data: commentData }] = await Promise.all([
+        supabase.from("inbox").select("*").order("created_at", { ascending: false }),
+        supabase.from("comments").select("*, products(name)").order("created_at", { ascending: false }),
+      ]);
+
+      const inboxItems = (inboxData ?? []).map((item: any) => ({
+        ...item,
+        type: item.kind ?? "subscription",
+        source: "inbox",
+      }));
+
+      const commentItems = (commentData ?? []).map((item: any) => ({
+        id: item.id,
+        type: "comment",
+        source: "comments",
+        name: item.author_name,
+        email: "",
+        product_name: item.products?.name ?? "Shop item",
+        message: item.body,
+        created_at: item.created_at,
+        status: item.status,
+      }));
+
+      return [...inboxItems, ...commentItems].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    },
+  });
+
+  async function markItem(item: any, status: string) {
+    if (item.source === "comments") {
+      const { error } = await supabase.from("comments").update({ status }).eq("id", item.id);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      refetch();
+      return;
+    }
+
+    const { error } = await supabase.from("inbox").update({ status }).eq("id", item.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    refetch();
+  }
+
+  return (
+    <div className="py-6 space-y-4">
+      <div className="rounded-lg border border-border bg-card p-4">
+        <p className="text-sm text-muted-foreground mb-2">Subscription requests, reminder items, and comment notifications.</p>
+      </div>
+
+      {(rows ?? []).length === 0 ? (
+        <p className="text-center text-sm text-muted-foreground py-6">No inbox items yet.</p>
+      ) : (
+        <div className="space-y-3">
+          {(rows ?? []).map((item: any) => (
+            <div key={`${item.source}-${item.id}`} className="rounded-lg border border-border bg-card p-4 md:p-5">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-secondary px-2 py-1 text-[10px] uppercase tracking-wide">{item.type}</span>
+                    <span className="text-xs text-muted-foreground">{new Date(item.created_at).toLocaleString()}</span>
+                  </div>
+
+                  <p className="mt-2 font-medium text-base">{item.name || item.product_name || "Inbox item"}</p>
+                  {item.email && <p className="text-sm text-muted-foreground">{item.email}</p>}
+                  {item.product_name && <p className="text-sm text-muted-foreground">{item.product_name}</p>}
+                  {item.message && <p className="mt-2 text-sm whitespace-pre-line">{item.message}</p>}
+                  {item.delivery_date && <p className="mt-2 text-xs text-muted-foreground">Delivery date: {new Date(item.delivery_date).toLocaleDateString()}</p>}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                  <span className="rounded-full border border-border px-2 py-1 text-xs text-muted-foreground">{item.status ?? "new"}</span>
+                  <Button size="sm" variant="outline" onClick={() => markItem(item, "read")}>Mark read</Button>
+                  <Button size="sm" variant="default" onClick={() => markItem(item, "done")}>Done</Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function CommentsTab() {
   const { data: rows, refetch } = useQuery({

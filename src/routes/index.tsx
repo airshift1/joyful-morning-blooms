@@ -9,6 +9,7 @@ import { ArrowRight } from "lucide-react";
 import heroImg from "@/assets/hero-bouquet.jpg";
 import storyImg from "@/assets/story-image.jpg";
 import AuthEditLink from "@/components/AuthEditLink";
+import { useVisitorTracking } from "@/hooks/use-visitor-tracking";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -24,6 +25,8 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
+  useVisitorTracking();
+
   const { data: content } = useQuery({
     queryKey: ["site_content", "home"],
     queryFn: async () => {

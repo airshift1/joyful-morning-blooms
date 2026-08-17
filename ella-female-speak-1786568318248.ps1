@@ -1,0 +1,9 @@
+Add-Type -AssemblyName System.Speech
+$bytes = [System.Convert]::FromBase64String('SGVsbG8hIEknbSBoZXJlIHRvIGhlbHAgYW5zd2VyIGFueSBxdWVzdGlvbnMgeW91IG1heSBoYXZlLiBQbGVhc2UgZmVlbCBmcmVlIHRvIGFzaywgYW5kIEknbGwgZG8gbXkgYmVzdCB0byBwcm92aWRlIGEgaGVscGZ1bCByZXNwb25zZS4gQXMgZm9yIHdoeSBCaWxsYm9hcmQgbWlnaHQgc2VsbCBvZmYsIEkgZG9uJ3QgaGF2ZSBhbnkgaW5mb3JtYXRpb24gYWJvdXQgdGhhdCBzcGVjaWZpY2FsbHkuIEhvd2V2ZXIsIGl0J3MgcG9zc2libGUgdGhhdCB0aGUgY29tcGFueSBtYXkgYmUgbG9va2luZyB0byBkaXZlc3QgaXRzZWxmIG9mIGNlcnRhaW4gYXNzZXRzIG9yIGJ1c2luZXNzZXMgdGhhdCBhcmUgbm90IGNvcmUgdG8gaXRzIG1haW4gb3BlcmF0aW9ucy4gQ2FuIHlvdSBwbGVhc2UgcHJvdmlkZSBtb3JlIGNvbnRleHQgb3IgZGV0YWlscyBhYm91dCB3aGF0IHlvdSdyZSBsb29raW5nIGZvcj8=')
+$text = [System.Text.Encoding]::UTF8.GetString($bytes)
+$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer
+$synth.SelectVoice("Microsoft Zira Desktop")
+$synth.Rate = 0
+$synth.Volume = 100
+$synth.Speak($text)
+$synth.Dispose()
