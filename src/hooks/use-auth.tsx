@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, email, full_name, phone, birthdate")
+        .select("id, email, full_name, phone")
         .eq("id", userId)
         .maybeSingle();
 
@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         full_name: data?.full_name ?? null,
         phone: data?.phone ?? null,
         email: data?.email ?? email ?? null,
-        birthdate: data?.birthdate ?? null,
+        birthdate: null,
       };
       setProfile(profileData);
 
