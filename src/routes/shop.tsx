@@ -94,9 +94,12 @@ function Shop() {
                   </ul>
                 )}
               </Link>
-              <div className="mt-4">
+              <div className="mt-4 flex flex-col gap-2">
                 <Button asChild size="sm" className="w-full">
                   <Link to="/order/$slug" params={{ slug: p.slug }}>Order this</Link>
+                </Button>
+                <Button asChild variant="outline" size="sm" className="w-full">
+                  <Link to="/shop/$slug" params={{ slug: p.slug }} hash="comments">Comment</Link>
                 </Button>
               </div>
             </div>

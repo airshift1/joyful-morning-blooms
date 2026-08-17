@@ -42,7 +42,7 @@ export function ProductComments({ productId }: { productId: string }) {
   }
 
   return (
-    <section className="mt-24 border-t border-border/60 pt-16">
+    <section id="comments" className="mt-24 border-t border-border/60 pt-16">
       <h2 className="font-display text-4xl">Questions & comments</h2>
       <p className="mt-2 text-muted-foreground">Ask about colors, availability, or leave a note.</p>
 
