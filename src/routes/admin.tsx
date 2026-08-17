@@ -61,6 +61,7 @@ function AdminDashboard() {
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="reviews">Reviews</TabsTrigger>
           <TabsTrigger value="comments">Comments</TabsTrigger>
+          <TabsTrigger value="inbox">Inbox</TabsTrigger>
           <TabsTrigger value="pages">Pages</TabsTrigger>
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="branding">Branding</TabsTrigger>
@@ -71,6 +72,7 @@ function AdminDashboard() {
         <TabsContent value="products"><ProductsTab /></TabsContent>
         <TabsContent value="reviews"><ReviewsTab /></TabsContent>
         <TabsContent value="comments"><CommentsTab /></TabsContent>
+        <TabsContent value="inbox"><InboxTab /></TabsContent>
         <TabsContent value="pages"><PagesTab /></TabsContent>
         <TabsContent value="content"><ContentTab /></TabsContent>
         <TabsContent value="branding"><BrandingTab /></TabsContent>
@@ -710,6 +712,107 @@ function ContentEditor({ row, onSaved }: any) {
   );
 }
 
+function InboxTab() {
+  const { data: inbox } = useQuery({
+    queryKey: ["admin-inbox"],
+    queryFn: async () => {
+      const now = new Date();
+      const futureLimit = new Date(now);
+      futureLimit.setDate(futureLimit.getDate() + 21);
+
+      const { data: orderRows } = await supabase
+        .from("orders")
+        .select("*")
+        .order("needed_date", { ascending: true });
+
+      const profileIds = Array.from(new Set((orderRows ?? []).map((o: any) => o.user_id).filter(Boolean))) as string[];
+      const { data: profileRows } = profileIds.length
+        ? await supabase.from("profiles").select("id, full_name, email").in("id", profileIds)
+        : { data: [] };
+      const profileMap = new Map((profileRows ?? []).map((p: any) => [p.id, p]));
+
+      const upcomingOrders = (orderRows ?? [])
+        .filter((o: any) => {
+          if (!o.needed_date) return false;
+          const date = new Date(o.needed_date);
+          return !Number.isNaN(date.getTime()) && date >= new Date(now.getFullYear(), now.getMonth(), now.getDate()) && date <= futureLimit && !(o.status === "cancelled" || o.status === "completed" || o.status === "rejected");
+        })
+        .map((o: any) => ({
+          ...o,
+          customerName: profileMap.get(o.user_id)?.full_name || o.contact_name || "Customer",
+          customerEmail: profileMap.get(o.user_id)?.email || o.contact_email || "",
+        }))
+        .sort((a: any, b: any) => new Date(a.needed_date).getTime() - new Date(b.needed_date).getTime());
+
+      const { data: comments } = await supabase.from("comments").select("*").order("created_at", { ascending: false });
+      const { data: reviews } = await supabase.from("reviews").select("*").order("created_at", { ascending: false });
+
+      return {
+        upcomingOrders,
+        comments: (comments ?? []).filter((c: any) => !c.status || c.status === "pending" || c.status === "approved"),
+        reviews: (reviews ?? []).filter((r: any) => !r.status || r.status === "pending" || r.status === "approved"),
+      };
+    },
+  });
+
+  const upcomingOrders = inbox?.upcomingOrders ?? [];
+  const comments = inbox?.comments ?? [];
+  const reviews = inbox?.reviews ?? [];
+
+  const formatFriendlyDate = (value?: string | null) => {
+    if (!value) return "No date";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
+  };
+
+  const inboxCards = [
+    ...upcomingOrders.map((order: any) => ({
+      id: `order-${order.id}`,
+      type: "Delivery",
+      title: `${order.customerName} has a delivery on ${formatFriendlyDate(order.needed_date)}`,
+      body: `${order.product_name || "Flower order"}${order.notes ? ` — ${order.notes}` : ""}`,
+      meta: `${order.fulfillment || "Delivery"}${order.needed_time ? ` at ${order.needed_time}` : ""}`,
+    })),
+    ...comments.map((comment: any) => ({
+      id: `comment-${comment.id}`,
+      type: "Comment",
+      title: `${comment.author_name || "Customer"} left a comment`,
+      body: comment.body || "No comment body saved.",
+      meta: `Status: ${comment.status || "pending"}`,
+    })),
+    ...reviews.map((review: any) => ({
+      id: `review-${review.id}`,
+      type: "Review",
+      title: `${review.author_name || "Customer"} left a review`,
+      body: review.body || "No review text saved.",
+      meta: `Rating: ${review.rating || 0}/5 · Status: ${review.status || "pending"}`,
+    })),
+  ];
+
+  return (
+    <div className="py-6 space-y-4">
+      <div className="rounded-lg border border-border bg-card p-6">
+        <h2 className="font-display text-2xl mb-2">Inbox</h2>
+        <p className="text-sm text-muted-foreground">Upcoming deliveries, comments, and reviews for the florist.</p>
+      </div>
+
+      {inboxCards.length === 0 && <p className="text-muted-foreground text-center py-8">No inbox items right now.</p>}
+
+      {inboxCards.map((item: any) => (
+        <div key={item.id} className="rounded-lg border border-border bg-card p-5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="rounded-full bg-secondary px-2 py-1 text-[10px] font-semibold uppercase tracking-wide">{item.type}</span>
+            <span className="text-xs text-muted-foreground">{item.meta}</span>
+          </div>
+          <h3 className="mt-3 font-display text-2xl">{item.title}</h3>
+          <p className="mt-2 whitespace-pre-line text-sm leading-6">{item.body}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SettingsTab() {
   const { data: rows, refetch } = useQuery({
     queryKey: ["admin-settings"],
@@ -940,8 +1043,8 @@ function UsersTab() {
       try {
         let queryBuilder = supabase
           .from("profiles")
-          .select("id, email, full_name, birthdate")
-          .order("email", { ascending: true });
+          .select("id, email, full_name, phone, created_at")
+          .order("created_at", { ascending: false });
 
         if (query && query.trim()) {
           const search = query.trim();
@@ -950,6 +1053,7 @@ function UsersTab() {
 
         const { data: profiles, error: profileError } = await queryBuilder;
         if (profileError) throw profileError;
+
         const profileRows = profiles ?? [];
         const userIds = profileRows.map((row: any) => row.id).filter(Boolean);
 
@@ -959,42 +1063,17 @@ function UsersTab() {
             .from("user_roles")
             .select("user_id, role")
             .in("user_id", userIds);
-          if (!roleError && Array.isArray(fetchedRoles)) {
-            roleRows = fetchedRoles;
-          }
+          if (!roleError && Array.isArray(fetchedRoles)) roleRows = fetchedRoles;
         }
 
-        let paymentRows: any[] = [];
-        if (userIds.length > 0) {
-          const paymentKeys = userIds.map((id) => `user_payment_${id}`);
-          const { data: fetchedPayments, error: paymentError } = await supabase
-            .from("site_settings")
-            .select("key, value")
-            .in("key", paymentKeys);
-          if (!paymentError && Array.isArray(fetchedPayments)) {
-            paymentRows = fetchedPayments;
-          }
+        const roleMap: Record<string, string> = {};
+        for (const role of roleRows) {
+          if (role.user_id) roleMap[role.user_id] = role.role;
         }
-
-        const roleMap: Record<string, any[]> = {};
-        roleRows.forEach((role: any) => {
-          if (!role.user_id) return;
-          roleMap[role.user_id] = [...(roleMap[role.user_id] ?? []), role];
-        });
-
-        const paymentMap: Record<string, any> = {};
-        paymentRows.forEach((row: any) => {
-          const match = row.key?.toString().replace(/^user_payment_/, "");
-          if (match) {
-            paymentMap[match] = row.value;
-          }
-        });
 
         return profileRows.map((row: any) => ({
           ...row,
-          email: row.email ?? "No email",
-          user_roles: roleMap[row.id] ?? [],
-          payment_settings: paymentMap[row.id] ?? null,
+          role: roleMap[row.id] || "user",
         }));
       } catch (err) {
         console.error("Error loading admin users:", err);
@@ -1003,24 +1082,23 @@ function UsersTab() {
     },
   });
 
-  async function toggleAdmin(userId: string, makeAdmin: boolean) {
-    if (makeAdmin) {
-      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: "admin" as any });
-      if (error && !error.message.includes("duplicate")) { toast.error(error.message); return; }
-    } else {
-      const { error } = await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "admin");
-      if (error) { toast.error(error.message); return; }
+  async function setRole(userId: string, nextRole: "admin" | "user") {
+    try {
+      const { error: deleteError } = await supabase.from("user_roles").delete().eq("user_id", userId);
+      if (deleteError) throw deleteError;
+
+      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: nextRole });
+      if (error) throw error;
+
+      toast.success(nextRole === "admin" ? "User promoted to admin" : "User demoted to regular user");
+      refetch();
+    } catch (error: any) {
+      toast.error(error?.message || "Unable to update role");
     }
-    toast.success("Updated");
-    refetch();
   }
 
   const list = rows ?? [];
-  const admins = list.filter((u: any) => {
-    const hasAdminRole = (u.user_roles ?? []).some((r: any) => r.role === "admin");
-    return isAdminEmail(u.email) || hasAdminRole;
-  });
-  const regularUsers = list.length - admins.length;
+  const admins = list.filter((u: any) => u.role === "admin");
 
   return (
     <div className="py-6 space-y-4">
@@ -1035,12 +1113,12 @@ function UsersTab() {
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground">Regular Users</p>
-          <p className="text-2xl font-display mt-1">{regularUsers}</p>
+          <p className="text-2xl font-display mt-1">{list.length - admins.length}</p>
         </div>
       </div>
 
       <div className="rounded-lg border border-border bg-card p-4">
-        <p className="text-sm text-muted-foreground mb-3">Promote accounts to admin, or remove admin access.</p>
+        <p className="text-sm text-muted-foreground mb-3">Change a person’s role between admin and customer.</p>
         <div className="flex items-center gap-2">
           <input placeholder="Search by name or email" value={query} onChange={(e) => setQuery(e.target.value)} className="flex-1 rounded-md border border-input px-3 py-2 text-sm" />
           <Button size="sm" onClick={() => refetch()}>Search</Button>
@@ -1053,29 +1131,26 @@ function UsersTab() {
         <p className="text-sm text-muted-foreground text-center py-6">No users found</p>
       ) : (
         <div className="space-y-3">
-          {list.map((u: any) => {
-            const isAdmin = isAdminEmail(u.email) || (u.user_roles ?? []).some((r: any) => r.role === "admin");
-            const paymentMethod = u.payment_settings?.payment_method ?? "in_person";
-            const paymentLabel = u.payment_settings?.payment_label ?? "";
-            const paymentSaved = !!u.payment_settings?.payment_token;
-            return (
-              <div key={u.id} className="rounded-lg border border-border bg-card p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-medium">{u.full_name || "(no name)"} {u.birthdate && <span className="text-sm text-muted-foreground">· Born {new Date(u.birthdate).toLocaleDateString()}</span>}</p>
-                    <p className="text-sm text-muted-foreground">{u.email}</p>
-                    <p className="text-sm text-muted-foreground mt-1">Payment: <strong>{paymentMethod === "online" ? `Online${paymentLabel ? ` (${paymentLabel})` : ""}` : "In person"}</strong>{paymentSaved ? " · Saved secret" : ""}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {isAdmin && <span className="px-3 py-1 rounded-full text-xs font-semibold bg-accent text-accent-foreground">Admin</span>}
-                    <Button size="sm" variant={isAdmin ? "outline" : "default"} onClick={() => toggleAdmin(u.id, !isAdmin)}>
-                      {isAdmin ? "Remove admin" : "Make admin"}
-                    </Button>
-                  </div>
+          {list.map((user: any) => (
+            <div key={user.id} className="rounded-lg border border-border bg-card p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium">{user.full_name || "(no name)"}</p>
+                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                  {user.phone && <p className="text-sm text-muted-foreground">{user.phone}</p>}
+                  <p className="text-xs text-muted-foreground mt-1">Joined {formatDate(user.created_at)}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide ${user.role === "admin" ? "bg-accent text-accent-foreground" : "bg-secondary text-foreground"}`}>
+                    {user.role}
+                  </span>
+                  <Button size="sm" variant={user.role === "admin" ? "outline" : "default"} onClick={() => setRole(user.id, user.role === "admin" ? "user" : "admin")}>
+                    {user.role === "admin" ? "Demote" : "Make admin"}
+                  </Button>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>
