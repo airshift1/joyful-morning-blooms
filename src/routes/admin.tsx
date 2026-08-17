@@ -58,23 +58,23 @@ function AdminDashboard() {
   }
 
   return (
-    <div className="container-editorial py-10">
-      <p className="eyebrow">Admin</p>
-      <h1 className="mt-2 font-display text-4xl md:text-5xl">Studio dashboard</h1>
+    <div className="container-editorial py-6 md:py-10">
+      <p className="eyebrow text-xs md:text-sm">Admin</p>
+      <h1 className="mt-2 font-display text-2xl md:text-5xl">Studio dashboard</h1>
 
-      <Tabs defaultValue="orders" className="mt-8">
-        <TabsList>
-          <TabsTrigger value="orders">Orders</TabsTrigger>
-          <TabsTrigger value="products">Products</TabsTrigger>
-          <TabsTrigger value="reviews">Reviews</TabsTrigger>
-          <TabsTrigger value="comments">Comments</TabsTrigger>
-          <TabsTrigger value="inbox">Inbox</TabsTrigger>
-          <TabsTrigger value="pages">Pages</TabsTrigger>
-          <TabsTrigger value="content">Content</TabsTrigger>
-          <TabsTrigger value="branding">Branding</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+      <Tabs defaultValue="orders" className="mt-6 md:mt-8">
+        <TabsList className="flex-wrap h-auto gap-1 bg-transparent border-b border-border w-full justify-start overflow-x-auto p-0 rounded-none">
+          <TabsTrigger value="orders" className="text-xs md:text-sm">Orders</TabsTrigger>
+          <TabsTrigger value="products" className="text-xs md:text-sm">Products</TabsTrigger>
+          <TabsTrigger value="reviews" className="text-xs md:text-sm">Reviews</TabsTrigger>
+          <TabsTrigger value="comments" className="text-xs md:text-sm">Comments</TabsTrigger>
+          <TabsTrigger value="inbox" className="text-xs md:text-sm">Inbox</TabsTrigger>
+          <TabsTrigger value="pages" className="text-xs md:text-sm">Pages</TabsTrigger>
+          <TabsTrigger value="content" className="text-xs md:text-sm">Content</TabsTrigger>
+          <TabsTrigger value="branding" className="text-xs md:text-sm">Branding</TabsTrigger>
+          <TabsTrigger value="users" className="text-xs md:text-sm">Users</TabsTrigger>
+          <TabsTrigger value="analytics" className="text-xs md:text-sm">Analytics</TabsTrigger>
+          <TabsTrigger value="settings" className="text-xs md:text-sm">Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="orders"><OrdersTab /></TabsContent>
         <TabsContent value="products"><ProductsTab /></TabsContent>
@@ -1117,7 +1117,7 @@ function UsersTab() {
 
   return (
     <div className="py-6 space-y-4">
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-xs text-muted-foreground">Total Users</p>
           <p className="text-2xl font-display mt-1">{list.length}</p>
@@ -1141,25 +1141,25 @@ function UsersTab() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-muted-foreground text-center py-6">Loading users...</p>
+        <p className="text-xs md:text-sm text-muted-foreground text-center py-6">Loading users...</p>
       ) : list.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-6">No users found</p>
+        <p className="text-xs md:text-sm text-muted-foreground text-center py-6">No users found</p>
       ) : (
         <div className="space-y-3">
           {list.map((user: any) => (
             <div key={user.id} className="rounded-lg border border-border bg-card p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3">
                 <div>
-                  <p className="font-medium">{user.full_name || "(no name)"}</p>
-                  <p className="text-sm text-muted-foreground">{user.email}</p>
-                  {user.phone && <p className="text-sm text-muted-foreground">{user.phone}</p>}
+                  <p className="font-medium text-sm md:text-base">{user.full_name || "(no name)"}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">{user.email}</p>
+                  {user.phone && <p className="text-xs md:text-sm text-muted-foreground">{user.phone}</p>}
                   <p className="text-xs text-muted-foreground mt-1">Joined {formatDate(user.created_at)}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide ${user.role === "admin" ? "bg-accent text-accent-foreground" : "bg-secondary text-foreground"}`}>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wide w-fit ${user.role === "admin" ? "bg-accent text-accent-foreground" : "bg-secondary text-foreground"}`}>
                     {user.role}
                   </span>
-                  <Button size="sm" variant={user.role === "admin" ? "outline" : "default"} onClick={() => setRole(user.id, user.role === "admin" ? "user" : "admin")}>
+                  <Button size="sm" variant={user.role === "admin" ? "outline" : "default"} onClick={() => setRole(user.id, user.role === "admin" ? "user" : "admin")} className="w-full sm:w-auto">
                     {user.role === "admin" ? "Demote" : "Make admin"}
                   </Button>
                 </div>
@@ -1278,40 +1278,43 @@ function AnalyticsTab() {
 
   return (
     <div className="py-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <span className="text-sm font-medium">Time period:</span>
-        {(["7days", "30days", "all"] as const).map((range) => (
-          <Button
-            key={range}
-            size="sm"
-            variant={dateRange === range ? "default" : "outline"}
-            onClick={() => setDateRange(range)}
-          >
-            {range === "7days" ? "Last 7 days" : range === "30days" ? "Last 30 days" : "All time"}
-          </Button>
-        ))}
+      <div className="flex flex-col md:flex-row md:items-center gap-3">
+        <span className="text-xs md:text-sm font-medium">Time period:</span>
+        <div className="flex flex-wrap gap-2">
+          {(["7days", "30days", "all"] as const).map((range) => (
+            <Button
+              key={range}
+              size="sm"
+              variant={dateRange === range ? "default" : "outline"}
+              onClick={() => setDateRange(range)}
+              className="text-xs"
+            >
+              {range === "7days" ? "7d" : range === "30days" ? "30d" : "All"}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Loading analytics...</p>
       ) : (
         <>
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="text-xs text-muted-foreground">Total page views</p>
-              <p className="text-3xl font-display mt-2">{stats?.totalViews ?? 0}</p>
+              <p className="text-2xl md:text-3xl font-display mt-2">{stats?.totalViews ?? 0}</p>
             </div>
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="text-xs text-muted-foreground">Unique visitors</p>
-              <p className="text-3xl font-display mt-2">{stats?.uniqueSessions ?? 0}</p>
+              <p className="text-2xl md:text-3xl font-display mt-2">{stats?.uniqueSessions ?? 0}</p>
             </div>
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="text-xs text-muted-foreground">Signed-in visits</p>
-              <p className="text-3xl font-display mt-2">{stats?.authenticatedViews ?? 0}</p>
+              <p className="text-2xl md:text-3xl font-display mt-2">{stats?.authenticatedViews ?? 0}</p>
             </div>
             <div className="rounded-lg border border-border bg-card p-4">
               <p className="text-xs text-muted-foreground">Anonymous visits</p>
-              <p className="text-3xl font-display mt-2">{stats?.anonymousViews ?? 0}</p>
+              <p className="text-2xl md:text-3xl font-display mt-2">{stats?.anonymousViews ?? 0}</p>
             </div>
           </div>
 
