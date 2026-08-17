@@ -54,7 +54,7 @@ function OrderForm() {
   const [contactPref, setContactPref] = useState<"email" | "text">("email");
   const [fullName, setFullName] = useState(profile?.full_name ?? "");
   const [phone, setPhone] = useState(profile?.phone ?? "");
-  const [email, setEmail] = useState(user?.email ?? "");
+  const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
   const [payment, setPayment] = useState<"online" | "in_person">("in_person");
   const [busy, setBusy] = useState(false);
@@ -229,6 +229,32 @@ function OrderForm() {
       payment_method: payment,
       status: "new",
     });
+
+    if (!error) {
+      const reminderDate = new Date(date);
+      reminderDate.setDate(reminderDate.getDate() - 7);
+
+      await supabase.from("inbox").insert({
+        kind: "order",
+        name: fullName,
+        email,
+        product_name: product!.name,
+        message: customDescription || `New ${product!.name} order request for ${fulfillment}.`,
+        delivery_date: date,
+        status: "new",
+      });
+
+      await supabase.from("inbox").insert({
+        kind: "delivery_reminder",
+        name: fullName,
+        email,
+        product_name: product!.name,
+        message: `Reminder: ${product!.name} is scheduled for ${date}.`,
+        delivery_date: reminderDate.toISOString().slice(0, 10),
+        status: "scheduled",
+      });
+    }
+
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Order placed! We'll be in touch shortly.");

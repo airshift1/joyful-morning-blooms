@@ -9,6 +9,7 @@ import { ArrowRight } from "lucide-react";
 import heroImg from "@/assets/hero-bouquet.jpg";
 import storyImg from "@/assets/story-image.jpg";
 import AuthEditLink from "@/components/AuthEditLink";
+import { useVisitorTracking } from "@/hooks/use-visitor-tracking";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -17,12 +18,15 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Seasonal, hand-tied bouquets and custom arrangements. Order online" },
       { property: "og:title", content: "Joyful Morning Blooms — Handcrafted florals for life's moments" },
       { property: "og:description", content: "Seasonal, hand-tied bouquets and custom arrangements. Order online" },
+      { name: "google-site-verification", content: "OTLTIUD1RbsaEorxWUhzrMurawAoioXbBU8ev6Ikjxc" },
     ],
   }),
   component: Home,
 });
 
 function Home() {
+  useVisitorTracking();
+
   const { data: content } = useQuery({
     queryKey: ["site_content", "home"],
     queryFn: async () => {

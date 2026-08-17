@@ -28,12 +28,26 @@ export function ProductComments({ productId }: { productId: string }) {
   async function submit() {
     if (!user || !body.trim()) return;
     setBusy(true);
+    const authorName = profile?.full_name || user.email?.split("@")[0] || "Customer";
     const { error } = await supabase.from("comments").insert({
       product_id: productId,
       user_id: user.id,
-      author_name: profile?.full_name || user.email?.split("@")[0] || "Customer",
+      author_name: authorName,
       body: body.trim(),
     });
+
+    if (!error) {
+      const { data: product } = await supabase.from("products").select("name").eq("id", productId).maybeSingle();
+      await supabase.from("inbox").insert({
+        kind: "comment",
+        name: authorName,
+        email: user.email ?? "",
+        product_name: product?.name ?? "Shop item",
+        message: body.trim(),
+        status: "new",
+      });
+    }
+
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Comment posted");

@@ -73,9 +73,19 @@ function Contact() {
     const parsed = schema.safeParse(form);
     if (!parsed.success) { toast.error(parsed.error.issues[0]?.message ?? "Please check the form"); return; }
     setSubmitting(true);
+
+    const { error } = await supabase.from("inbox").insert({
+      kind: "contact",
+      name: form.name,
+      email: form.email,
+      message: form.message,
+      status: "new",
+    });
+
+    setSubmitting(false);
+    if (error) { toast.error(error.message); return; }
     toast.success("Thanks! We'll be in touch soon.");
     setForm({ name: "", email: "", message: "" });
-    setSubmitting(false);
   }
 
   return (
