@@ -85,31 +85,36 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Ella AI — Personal assistant" },
+      { title: "Joyful Morning Blooms — Hand-tied Bouquets" },
       {
         name: "description",
         content:
-          "Ella AI is your personal assistant dashboard for quick answers, system checks, and smart automation.",
+          "Fresh, seasonal flower arrangements hand-picked and tied in our studio. Available for pickup or local delivery.",
       },
-      { name: "author", content: "Ella AI" },
-      { property: "og:title", content: "Ella AI — Personal assistant" },
+      { name: "theme-color", content: "#fb7185" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "apple-mobile-web-app-title", content: "Blooms" },
+      { property: "og:title", content: "Joyful Morning Blooms" },
       {
         property: "og:description",
         content:
-          "Ella AI is your personal assistant dashboard for quick answers, system checks, and smart automation.",
+          "Fresh, seasonal flower arrangements hand-picked and tied in our studio.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Ella AI — Personal assistant" },
+      { name: "twitter:title", content: "Joyful Morning Blooms" },
       {
         name: "twitter:description",
         content:
-          "Ella AI is your personal assistant dashboard for quick answers, system checks, and smart automation.",
+          "Fresh, seasonal flower arrangements hand-picked and tied in our studio.",
       },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "apple-touch-icon", href: "/icon-180.png", sizes: "180x180" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       {
