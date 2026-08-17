@@ -36,7 +36,11 @@ export function ProductComments({ productId }: { productId: string }) {
       body: body.trim(),
     });
 
-    if (!error) {
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+
+    // Try to add inbox entry, but don't block the comment on failure
+    try {
       const { data: product } = await supabase.from("products").select("name").eq("id", productId).maybeSingle();
       await supabase.from("inbox").insert({
         kind: "comment",
@@ -45,11 +49,11 @@ export function ProductComments({ productId }: { productId: string }) {
         product_name: product?.name ?? "Shop item",
         message: body.trim(),
         status: "new",
-      });
+      }).catch(() => null);
+    } catch (e) {
+      console.warn("Failed to create inbox entry:", e);
     }
 
-    setBusy(false);
-    if (error) { toast.error(error.message); return; }
     toast.success("Comment posted");
     setBody("");
     refetch();
