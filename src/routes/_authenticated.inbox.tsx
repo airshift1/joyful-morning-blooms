@@ -1,8 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { formatMoney, formatDate } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export const Route = createFileRoute("/_authenticated/inbox")({
@@ -15,102 +15,151 @@ export const Route = createFileRoute("/_authenticated/inbox")({
   component: Inbox,
 });
 
+function formatFriendlyDate(value?: string | null) {
+  if (!value) return "No date";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
 function Inbox() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
-  const { data: orders } = useQuery({
-    queryKey: ["inbox-orders", user?.id],
+  const { data: inbox } = useQuery({
+    queryKey: ["inbox-feed", user?.id, isAdmin],
     enabled: !!user,
     queryFn: async () => {
-      const { data } = await supabase
+      const now = new Date();
+      const futureCutoff = new Date(now);
+      futureCutoff.setDate(futureCutoff.getDate() + 21);
+
+      const { data: orderRows } = await supabase
         .from("orders")
-        .select("*, products(name, slug)")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false });
-      return data ?? [];
-    },
-  });
+        .select("*")
+        .order("needed_date", { ascending: true });
 
-  const { data: comments } = useQuery({
-    queryKey: ["inbox-comments", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data } = await supabase
+      const userIds = Array.from(new Set((orderRows ?? []).map((o: any) => o.user_id).filter(Boolean))) as string[];
+      const { data: profileRows } = userIds.length
+        ? await supabase.from("profiles").select("id, full_name, email").in("id", userIds)
+        : { data: [] };
+      const profileMap = new Map((profileRows ?? []).map((p: any) => [p.id, p]));
+
+      const upcomingOrders = (orderRows ?? [])
+        .filter((o: any) => {
+          if (!o.needed_date || o.status === "cancelled" || o.status === "completed" || o.status === "rejected") return false;
+          const d = new Date(o.needed_date);
+          return !Number.isNaN(d.getTime()) && d >= new Date(now.getFullYear(), now.getMonth(), now.getDate()) && d <= futureCutoff;
+        })
+        .map((o: any) => ({
+          ...o,
+          customerName: profileMap.get(o.user_id)?.full_name || o.contact_name || "Customer",
+          customerEmail: profileMap.get(o.user_id)?.email || o.contact_email || "",
+          productName: o.product_name || "Flower order",
+        }))
+        .sort((a: any, b: any) => new Date(a.needed_date).getTime() - new Date(b.needed_date).getTime());
+
+      const { data: commentRows } = await supabase
+        .from("comments")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      const { data: reviewRows } = await supabase
         .from("reviews")
-        .select("*, products(name, slug)")
-        .eq("user_id", user!.id)
+        .select("*")
         .order("created_at", { ascending: false });
-      return data ?? [];
+
+      const comments = (commentRows ?? []).filter((c: any) => !c.status || c.status === "pending" || c.status === "approved");
+      const reviews = (reviewRows ?? []).filter((r: any) => !r.status || r.status === "pending" || r.status === "approved");
+
+      return {
+        upcomingOrders,
+        comments,
+        reviews,
+      };
     },
   });
 
-  const newOrders = (orders ?? []).filter((o: any) => o.status === "new");
-  const newComments = (comments ?? []).filter((c: any) => c.status === "pending");
+  const upcomingOrders = inbox?.upcomingOrders ?? [];
+  const comments = inbox?.comments ?? [];
+  const reviews = inbox?.reviews ?? [];
+
+  const deliveryMessages = upcomingOrders.map((order: any) => ({
+    id: `order-${order.id}`,
+    label: "Delivery",
+    title: `${order.customerName} has a delivery on ${formatFriendlyDate(order.needed_date)}`,
+    summary: `${order.productName}${order.notes ? ` — ${order.notes}` : ""}`,
+    meta: `${order.fulfillment || "Delivery"}${order.needed_time ? ` at ${order.needed_time}` : ""}`,
+  }));
+
+  const commentMessages = [...comments, ...reviews].map((entry: any) => ({
+    id: `message-${entry.id}`,
+    label: entry.body ? "Customer note" : "Review",
+    title: entry.author_name || entry.customer_name || "Customer",
+    summary: entry.body || entry.comment || "No details saved",
+    meta: entry.status ? `${entry.status} · ${formatFriendlyDate(entry.created_at)}` : formatFriendlyDate(entry.created_at),
+  }));
+
+  const allItems = [...deliveryMessages, ...commentMessages];
 
   return (
     <div className="container-editorial py-16 md:py-24">
-      <p className="eyebrow">Your activity</p>
+      <p className="eyebrow">{isAdmin ? "Operations" : "Updates"}</p>
       <h1 className="mt-3 font-display text-5xl">Inbox</h1>
+      <p className="mt-2 text-muted-foreground max-w-2xl">
+        {isAdmin
+          ? "Keep track of upcoming deliveries, delivery notes, and customer feedback before the week gets busy."
+          : "See your upcoming delivery reminders and customer notes related to your orders."}
+      </p>
 
-      <Tabs defaultValue="orders" className="mt-8">
+      <Tabs defaultValue="all" className="mt-8">
         <TabsList>
-          <TabsTrigger value="orders">Orders {newOrders.length > 0 && `(${newOrders.length})`}</TabsTrigger>
-          <TabsTrigger value="comments">Comments {newComments.length > 0 && `(${newComments.length})`}</TabsTrigger>
+          <TabsTrigger value="all">All {allItems.length > 0 && `(${allItems.length})`}</TabsTrigger>
+          <TabsTrigger value="deliveries">Deliveries {deliveryMessages.length > 0 && `(${deliveryMessages.length})`}</TabsTrigger>
+          <TabsTrigger value="notes">Notes {commentMessages.length > 0 && `(${commentMessages.length})`}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="orders" className="space-y-4 mt-6">
-          {(orders ?? []).length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              No orders yet. <Link to="/shop" className="underline">Browse the shop</Link>.
-            </div>
-          )}
-          {(orders ?? []).map((o: any) => (
-            <div key={o.id} className="rounded-lg border border-border bg-card p-6">
-              <div className="flex flex-wrap items-center gap-6 justify-between">
-                <div className="flex-1">
-                  <p className="font-display text-2xl">{o.products?.name ?? "Custom order"}</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {formatDate(o.created_at)} · {o.quantity} × {o.size_name ?? "standard"}
-                  </p>
-                  <p className="text-sm mt-2">
-                    Fulfillment: <strong>{o.fulfillment}</strong> on <strong>{o.needed_date}</strong>
-                    {o.needed_time && ` at ${o.needed_time}`}
-                  </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-secondary">{o.status}</span>
-                    <span className="text-sm font-semibold">{formatMoney(o.subtotal_cents)}</span>
-                  </div>
+        <TabsContent value="all" className="mt-6 space-y-4">
+          {allItems.length === 0 && <p className="text-muted-foreground py-8">No inbox items right now.</p>}
+          {allItems.map((item: any) => (
+            <div key={item.id} className="rounded-lg border border-border bg-card p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{item.label}</p>
+                  <h2 className="mt-1 font-display text-2xl">{item.title}</h2>
                 </div>
+                <span className="rounded-full border border-border bg-secondary px-2.5 py-1 text-xs font-medium">{item.meta}</span>
               </div>
+              <p className="mt-3 whitespace-pre-line text-sm leading-6">{item.summary}</p>
             </div>
           ))}
         </TabsContent>
 
-        <TabsContent value="comments" className="space-y-4 mt-6">
-          {(comments ?? []).length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              No comments or reviews yet. <Link to="/shop" className="underline">Leave a review</Link>.
+        <TabsContent value="deliveries" className="mt-6 space-y-4">
+          {deliveryMessages.length === 0 && <p className="text-muted-foreground py-8">No upcoming deliveries in the next 3 weeks.</p>}
+          {deliveryMessages.map((item: any) => (
+            <div key={item.id} className="rounded-lg border border-border bg-card p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Delivery reminder</p>
+              <h2 className="mt-1 font-display text-2xl">{item.title}</h2>
+              <p className="mt-3 text-sm whitespace-pre-line">{item.summary}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{item.meta}</p>
             </div>
-          )}
-          {(comments ?? []).map((c: any) => (
-            <div key={c.id} className="rounded-lg border border-border bg-card p-6">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <p className="font-display text-lg">{c.products?.name}</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="text-sm">{"★".repeat(c.rating)}{"☆".repeat(5 - c.rating)}</span>
-                    <span className="px-2 py-0.5 rounded-full text-xs bg-secondary">{c.status}</span>
-                  </div>
-                  {c.body && <p className="mt-3 text-sm">{c.body}</p>}
-                  {c.admin_reply && (
-                    <div className="mt-3 p-3 rounded-md bg-secondary/40 border border-border/40">
-                      <p className="text-xs font-semibold text-muted-foreground mb-1">From the florist:</p>
-                      <p className="text-sm">{c.admin_reply}</p>
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-2">{formatDate(c.created_at)}</p>
-                </div>
+          ))}
+        </TabsContent>
+
+        <TabsContent value="notes" className="mt-6 space-y-4">
+          {commentMessages.length === 0 && <p className="text-muted-foreground py-8">No customer notes or reviews right now.</p>}
+          {commentMessages.map((item: any) => (
+            <div key={item.id} className="rounded-lg border border-border bg-card p-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{item.label}</p>
+                <span className="text-xs text-muted-foreground">{item.meta}</span>
               </div>
+              <h2 className="mt-2 font-display text-xl">{item.title}</h2>
+              <p className="mt-3 whitespace-pre-line text-sm leading-6">{item.summary}</p>
             </div>
           ))}
         </TabsContent>
