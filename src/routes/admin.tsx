@@ -1136,3 +1136,143 @@ function CommentsTab() {
   );
 }
 
+function UsersTab() {
+  const { data: users, refetch } = useQuery({
+    queryKey: ["admin-users"],
+    queryFn: async () => {
+      const { data: profiles } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+      const { data: roles } = await supabase.from("user_roles").select("*");
+      const roleMap = new Map(roles?.map((r: any) => [r.user_id, r.role]) || []);
+      return (profiles ?? []).map((p: any) => ({ ...p, role: roleMap.get(p.id) || "user" }));
+    },
+  });
+
+  async function setRole(userId: string, newRole: string) {
+    const { error: deleteErr } = await supabase.from("user_roles").delete().eq("user_id", userId);
+    if (deleteErr) { toast.error(deleteErr.message); return; }
+    const { error: insertErr } = await supabase.from("user_roles").insert({ user_id: userId, role: newRole });
+    if (insertErr) { toast.error(insertErr.message); return; }
+    toast.success("Role updated");
+    refetch();
+  }
+
+  return (
+    <div className="py-6 space-y-4">
+      <div className="rounded-lg border border-border bg-card p-6 mb-6">
+        <h2 className="font-display text-2xl mb-2">Manage Users</h2>
+        <p className="text-sm text-muted-foreground">Change user roles: admin or user.</p>
+      </div>
+      {(users ?? []).length === 0 && <p className="text-muted-foreground">No users yet.</p>}
+      {(users ?? []).map((u: any) => (
+        <div key={u.id} className="rounded-lg border border-border bg-card p-6 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="font-display text-lg">{u.full_name || u.email || "Unnamed"}</p>
+            <p className="text-sm text-muted-foreground">{u.email}</p>
+            {u.phone && <p className="text-sm text-muted-foreground">{u.phone}</p>}
+            <p className="text-xs text-muted-foreground mt-1">Created {formatDate(u.created_at)}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              variant={u.role === "admin" ? "default" : "outline"} 
+              onClick={() => setRole(u.id, "admin")}
+            >
+              Make Admin
+            </Button>
+            <Button 
+              size="sm" 
+              variant={u.role === "user" ? "default" : "outline"} 
+              onClick={() => setRole(u.id, "user")}
+            >
+              Make User
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BrandingTab() {
+  const { data: branding, refetch } = useQuery({
+    queryKey: ["admin-branding"],
+    queryFn: async () => {
+      const { data } = await supabase.from("site_settings").select("value").eq("key", "branding").maybeSingle();
+      return (data?.value ?? {}) as Record<string, any>;
+    },
+  });
+
+  const [shopName, setShopName] = useState("");
+  const [shopTagline, setShopTagline] = useState("");
+
+  useEffect(() => {
+    if (branding) {
+      setShopName(branding.shop_name ?? "");
+      setShopTagline(branding.shop_tagline ?? "");
+    }
+  }, [branding]);
+
+  async function save() {
+    const { error } = await supabase.from("site_settings").upsert({ key: "branding", value: { shop_name: shopName, shop_tagline: shopTagline } });
+    if (error) toast.error(error.message); else { toast.success("Saved"); refetch(); }
+  }
+
+  return (
+    <div className="py-6 max-w-2xl space-y-4">
+      <div className="rounded-lg border border-border bg-card p-6">
+        <h2 className="font-display text-2xl mb-6">Shop Branding</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold mb-2">Shop Name</label>
+            <input type="text" value={shopName} onChange={(e) => setShopName(e.target.value)} className="w-full rounded-md border border-input px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-2">Tagline</label>
+            <input type="text" value={shopTagline} onChange={(e) => setShopTagline(e.target.value)} className="w-full rounded-md border border-input px-3 py-2 text-sm" />
+          </div>
+          <Button onClick={save} className="mt-4">Save Branding</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsTab() {
+  const { data: settings, refetch } = useQuery({
+    queryKey: ["admin-settings"],
+    queryFn: async () => {
+      const { data } = await supabase.from("site_settings").select("*");
+      return data ?? [];
+    },
+  });
+
+  const [edits, setEdits] = useState<Record<string, any>>({});
+
+  async function save(key: string) {
+    const { error } = await supabase.from("site_settings").upsert({ key, value: edits[key] || {} });
+    if (error) toast.error(error.message); else { toast.success("Saved"); refetch(); }
+  }
+
+  return (
+    <div className="py-6 space-y-4">
+      <div className="rounded-lg border border-border bg-card p-6 mb-6">
+        <h2 className="font-display text-2xl mb-2">Site Settings</h2>
+        <p className="text-sm text-muted-foreground">Advanced configuration stored as JSON.</p>
+      </div>
+      {(settings ?? []).map((s: any) => (
+        <div key={s.key} className="rounded-lg border border-border bg-card p-6">
+          <div className="flex items-center justify-between mb-3">
+            <p className="font-mono text-sm">{s.key}</p>
+            <Button size="sm" onClick={() => save(s.key)}>Save</Button>
+          </div>
+          <textarea 
+            value={JSON.stringify(edits[s.key] ?? s.value, null, 2)} 
+            onChange={(e) => { try { setEdits({ ...edits, [s.key]: JSON.parse(e.target.value) }); } catch {} }}
+            className="w-full min-h-32 rounded-md border border-input bg-background px-3 py-2 text-sm font-mono" 
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+

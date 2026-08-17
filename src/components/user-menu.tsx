@@ -1,5 +1,5 @@
 import { Link, useRouter } from "@tanstack/react-router";
-import { LogOut, Settings, Crown, LogIn } from "lucide-react";
+import { LogOut, Settings, Crown, LogIn, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -63,6 +63,15 @@ export function UserMenu() {
           >
             <Settings className="h-4 w-4 mr-2" />
             Account Settings
+          </button>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <button
+            onClick={() => router.navigate({ to: "/inbox" })}
+            className="w-full cursor-pointer"
+          >
+            <Mail className="h-4 w-4 mr-2" />
+            Inbox
           </button>
         </DropdownMenuItem>
         {isAdmin && (
