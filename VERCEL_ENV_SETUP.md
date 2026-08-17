@@ -11,6 +11,7 @@ VITE_SUPABASE_URL = https://ryoqkscwtemhibcvgdul.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY = sb_publishable_8JSae5AzaRX064hXvOF2dA_csbLsK-Y
 VITE_SUPABASE_PROJECT_ID = ryoqkscwtemhibcvgdul
 VITE_GOOGLE_CLIENT_ID = 872264434360-ghelts8ja2hc6u09r3v0jt517lhtk234.apps.googleusercontent.com
+VITE_ADMIN_EMAIL = joyfulmorningblooms@gmail.com,darbensmosier@gmail.com,lovable192181@outlook.com
 ```
 
 ## Optional Variables (Add Later)

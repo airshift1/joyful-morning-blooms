@@ -4,7 +4,7 @@ BEGIN
   INSERT INTO public.user_roles (user_id, role)
   SELECT id, 'admin'::public.app_role
   FROM auth.users
-  WHERE lower(email) IN ('joyfulmorningblooms@gmail.com', 'darbensmosier@gmail.com')
+  WHERE lower(email) IN ('joyfulmorningblooms@gmail.com', 'darbensmosier@gmail.com', 'lovable192181@outlook.com')
   ON CONFLICT DO NOTHING;
 END;
 $$;
@@ -19,7 +19,7 @@ BEGIN
           COALESCE(NEW.raw_user_meta_data->>'phone', ''))
   ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, full_name = EXCLUDED.full_name, phone = EXCLUDED.phone;
   INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, 'user') ON CONFLICT DO NOTHING;
-  IF lower(NEW.email) IN ('joyfulmorningblooms@gmail.com', 'darbensmosier@gmail.com') THEN
+  IF lower(NEW.email) IN ('joyfulmorningblooms@gmail.com', 'darbensmosier@gmail.com', 'lovable192181@outlook.com') THEN
     INSERT INTO public.user_roles (user_id, role) VALUES (NEW.id, 'admin')
     ON CONFLICT DO NOTHING;
   END IF;
