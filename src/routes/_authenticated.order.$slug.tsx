@@ -246,7 +246,7 @@ function OrderForm() {
         message: customDescription || `New ${product!.name} order request for ${fulfillment}.`,
         delivery_date: date,
         status: "new",
-      }).catch(() => null);
+      });
 
       await supabase.from("inbox").insert({
         kind: "delivery_reminder",
@@ -256,7 +256,7 @@ function OrderForm() {
         message: `Reminder: ${product!.name} is scheduled for ${date}.`,
         delivery_date: reminderDate.toISOString().slice(0, 10),
         status: "scheduled",
-      }).catch(() => null);
+      });
     } catch (e) {
       console.warn("Failed to create inbox entries:", e);
     }
