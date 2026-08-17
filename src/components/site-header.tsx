@@ -2,6 +2,7 @@ import { Link, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { Menu, X, ShoppingBag, Sparkles } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { isAdminEmail } from "@/lib/admin";
 import { Button } from "@/components/ui/button";
 import { useSiteSettings } from "@/hooks/use-site-settings";
 import { brandingUrl } from "@/lib/photo-url";
@@ -11,6 +12,7 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const { user, isAdmin, signOut } = useAuth();
   const router = useRouter();
+  const effectiveIsAdmin = isAdmin || isAdminEmail(user?.email);
   const { branding, shop } = useSiteSettings();
   const logo = brandingUrl(branding.logo_path);
 
@@ -74,7 +76,7 @@ export function SiteHeader() {
               {user ? (
                 <>
                   <Link to="/account" onClick={() => setOpen(false)} className="py-2 text-foreground/80">Account Settings</Link>
-                  {isAdmin && <Link to="/admin" onClick={() => setOpen(false)} className="py-2 text-foreground/80 font-medium">Admin Panel</Link>}
+                  {effectiveIsAdmin && <Link to="/admin" onClick={() => setOpen(false)} className="py-2 text-foreground/80 font-medium">Admin Panel</Link>}
                   <button onClick={async () => { await signOut(); setOpen(false); router.navigate({ to: "/" }); }} className="py-2 text-left text-red-600 dark:text-red-400">Sign out</button>
                 </>
               ) : (

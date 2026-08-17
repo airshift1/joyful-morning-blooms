@@ -100,6 +100,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
+      if (s?.user) {
+        setIsAdmin(isAdminEmail(s.user.email));
+      } else {
+        setIsAdmin(false);
+      }
       if (typeof window !== 'undefined') {
         try {
           if (s?.user) {

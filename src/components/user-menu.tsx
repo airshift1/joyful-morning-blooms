@@ -1,6 +1,7 @@
 import { Link, useRouter } from "@tanstack/react-router";
 import { LogOut, Settings, Crown, LogIn, Mail } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { isAdminEmail } from "@/lib/admin";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +15,7 @@ import {
 export function UserMenu() {
   const { user, profile, isAdmin, signOut } = useAuth();
   const router = useRouter();
+  const effectiveIsAdmin = isAdmin || isAdminEmail(user?.email);
 
   if (!user) {
     return (
@@ -49,7 +51,7 @@ export function UserMenu() {
           <p className="font-semibold text-foreground">{displayName}</p>
           <p className="text-xs text-muted-foreground">{user.email}</p>
         </div>
-        {isAdmin && (
+        {effectiveIsAdmin && (
           <div className="px-2 py-1.5 text-xs bg-primary/10 text-primary rounded mx-2 flex items-center gap-1">
             <Crown className="h-3 w-3" />
             Admin
@@ -65,7 +67,7 @@ export function UserMenu() {
             Account Settings
           </button>
         </DropdownMenuItem>
-        {isAdmin && (
+        {effectiveIsAdmin && (
           <DropdownMenuItem asChild>
             <button
               onClick={() => router.navigate({ to: "/admin" })}
