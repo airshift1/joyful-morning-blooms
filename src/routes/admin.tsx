@@ -73,6 +73,7 @@ function AdminDashboard() {
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="branding">Branding</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="orders"><OrdersTab /></TabsContent>
@@ -84,6 +85,7 @@ function AdminDashboard() {
         <TabsContent value="content"><ContentTab /></TabsContent>
         <TabsContent value="branding"><BrandingTab /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
+        <TabsContent value="analytics"><AnalyticsTab /></TabsContent>
         <TabsContent value="settings"><SettingsTab /></TabsContent>
       </Tabs>
 
@@ -1220,6 +1222,116 @@ function CommentsTab() {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function AnalyticsTab() {
+  const [dateRange, setDateRange] = useState<"7days" | "30days" | "all">("7days");
+  
+  const getDaysBack = () => {
+    const now = new Date();
+    switch (dateRange) {
+      case "7days":
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      case "30days":
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      default:
+        return new Date(0);
+    }
+  };
+
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ["analytics", dateRange],
+    queryFn: async () => {
+      const startDate = getDaysBack().toISOString();
+      const { data: views, error } = await supabase
+        .from("page_views")
+        .select("*")
+        .gte("created_at", startDate);
+
+      if (error) throw error;
+
+      const totalViews = views?.length ?? 0;
+      const uniqueSessions = new Set((views ?? []).map((v: any) => v.session_id)).size;
+      const authenticatedViews = (views ?? []).filter((v: any) => v.user_id).length;
+      const anonymousViews = totalViews - authenticatedViews;
+
+      const pageStats: Record<string, number> = {};
+      (views ?? []).forEach((v: any) => {
+        pageStats[v.page_path] = (pageStats[v.page_path] ?? 0) + 1;
+      });
+
+      const topPages = Object.entries(pageStats)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+
+      return {
+        totalViews,
+        uniqueSessions,
+        authenticatedViews,
+        anonymousViews,
+        topPages,
+      };
+    },
+  });
+
+  return (
+    <div className="py-6 space-y-6">
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium">Time period:</span>
+        {(["7days", "30days", "all"] as const).map((range) => (
+          <Button
+            key={range}
+            size="sm"
+            variant={dateRange === range ? "default" : "outline"}
+            onClick={() => setDateRange(range)}
+          >
+            {range === "7days" ? "Last 7 days" : range === "30days" ? "Last 30 days" : "All time"}
+          </Button>
+        ))}
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">Loading analytics...</p>
+      ) : (
+        <>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground">Total page views</p>
+              <p className="text-3xl font-display mt-2">{stats?.totalViews ?? 0}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground">Unique visitors</p>
+              <p className="text-3xl font-display mt-2">{stats?.uniqueSessions ?? 0}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground">Signed-in visits</p>
+              <p className="text-3xl font-display mt-2">{stats?.authenticatedViews ?? 0}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-4">
+              <p className="text-xs text-muted-foreground">Anonymous visits</p>
+              <p className="text-3xl font-display mt-2">{stats?.anonymousViews ?? 0}</p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border bg-card p-6">
+            <h3 className="font-display text-xl mb-4">Top pages</h3>
+            <div className="space-y-2">
+              {(stats?.topPages?.length ?? 0) === 0 ? (
+                <p className="text-sm text-muted-foreground">No page views yet.</p>
+              ) : (
+                (stats?.topPages ?? []).map(([path, count]) => (
+                  <div key={path} className="flex items-center justify-between py-2 px-3 rounded-md bg-secondary/20 border border-border/40">
+                    <span className="text-sm font-mono">{path}</span>
+                    <span className="font-display text-sm">{count} views</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

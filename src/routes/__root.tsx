@@ -13,6 +13,7 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "@/hooks/use-auth";
+import { usePageTracking } from "@/hooks/use-page-tracking";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { supabase } from "@/integrations/supabase/client";
@@ -174,6 +175,11 @@ function DynamicFavicon() {
   return null;
 }
 
+function PageTracking() {
+  usePageTracking();
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -181,6 +187,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <AuthSync />
+        <PageTracking />
         <DynamicFavicon />
         <div className="flex flex-col min-h-screen">
           <SiteHeader />
