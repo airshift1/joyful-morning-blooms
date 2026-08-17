@@ -20,7 +20,14 @@ export const Route = createFileRoute("/admin")({
 });
 
 function AdminGate() {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, isAdmin, loading, refreshAuthState } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      void refreshAuthState();
+    }
+  }, [user?.id, user?.email, refreshAuthState]);
+
   if (loading) return <div className="container-editorial py-24">Loading…</div>;
   if (!user) {
     return (
@@ -1037,6 +1044,7 @@ function BrandingTab() {
 
 function UsersTab() {
   const [query, setQuery] = useState("");
+  const { user, refreshAuthState } = useAuth();
   const { data: rows, refetch, isLoading } = useQuery({
     queryKey: ["admin-users", query],
     queryFn: async () => {
@@ -1087,11 +1095,16 @@ function UsersTab() {
       const { error: deleteError } = await supabase.from("user_roles").delete().eq("user_id", userId);
       if (deleteError) throw deleteError;
 
-      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: nextRole });
-      if (error) throw error;
+      const { error: insertError } = await supabase.from("user_roles").insert({ user_id: userId, role: nextRole });
+      if (insertError) throw insertError;
 
       toast.success(nextRole === "admin" ? "User promoted to admin" : "User demoted to regular user");
-      refetch();
+
+      if (user?.id === userId) {
+        await refreshAuthState();
+      }
+
+      await refetch();
     } catch (error: any) {
       toast.error(error?.message || "Unable to update role");
     }

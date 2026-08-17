@@ -11,6 +11,7 @@ type AuthCtx = {
   profile: Profile;
   isAdmin: boolean;
   loading: boolean;
+  refreshAuthState: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -20,6 +21,7 @@ const Ctx = createContext<AuthCtx>({
   profile: null,
   isAdmin: false,
   loading: true,
+  refreshAuthState: async () => {},
   signOut: async () => {},
 });
 
@@ -64,12 +66,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
       setProfile(profileData);
 
-      const hasAdminRole = !roleError && Array.isArray(roleRows) && roleRows.some((role: any) => role?.role === "admin");
+      const hasAdminRole = !roleError && Array.isArray(roleRows) && roleRows.some((role: any) => {
+        const value = String(role?.role ?? "").toLowerCase();
+        return ["admin", "owner", "staff"].includes(value);
+      });
       setIsAdmin(isAdminEmail(email) || hasAdminRole);
     } catch (err) {
       console.warn("Load auth extras failed:", err);
       setIsAdmin(isAdminEmail(email));
     }
+  }
+
+  async function refreshAuthState() {
+    const currentUser = session?.user ?? null;
+    if (!currentUser) {
+      setIsAdmin(false);
+      setProfile(null);
+      return;
+    }
+
+    await ensureProfile(currentUser);
+    await loadExtras(currentUser.id, currentUser.email);
   }
 
   useEffect(() => {
@@ -156,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     isAdmin,
     loading,
+    refreshAuthState,
     signOut: async () => { await supabase.auth.signOut(); },
   };
 
