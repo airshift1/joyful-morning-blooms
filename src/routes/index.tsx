@@ -91,6 +91,9 @@ function Home() {
               <Button asChild size="lg" variant="outline">
                 <Link to="/about">Our story</Link>
               </Button>
+              <Button asChild size="lg" variant="secondary">
+                <Link to="/ella">Open Ella app</Link>
+              </Button>
 
               {/* Edit home page link for owner/admin */}
               <AuthEditLink />

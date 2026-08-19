@@ -6,6 +6,8 @@ const execFile = promisify(_execFile);
 const VOSK_SCRIPT = 'scripts\\vosk_recognizer.py';
 const DEFAULT_VOSK_MODEL = 'models\\vosk-model-small-en-us-0.15';
 const SAPI_VOICE = process.env.SAPI_VOICE || 'Microsoft Zira Desktop';
+const ONE_HOUR_MS = 60 * 60 * 1000;
+const TTS_RATE = -2;
 
 function cleanLine(s) { return String(s || '').trim(); }
 
@@ -42,7 +44,8 @@ function defaultProfile() {
       confidence: 0,
       lastSeen: null
     },
-    learning: { enabled: true, improvedAt: null }
+    learning: { enabled: true, improvedAt: null },
+    lastUsedAt: null
   };
 }
 function loadProfile() {
@@ -55,6 +58,19 @@ function loadProfile() {
 }
 function saveProfile(profile) {
   try { writeFileSync(profilePath(), JSON.stringify(profile, null, 2), 'utf8'); return true; } catch (e) { return false; }
+}
+
+function touchProfileActivity(profile) {
+  if (!profile) return profile;
+  profile.lastUsedAt = new Date().toISOString();
+  return profile;
+}
+
+function shouldWelcomeBack(profile) {
+  if (!profile || !profile.lastUsedAt) return false;
+  const lastUsed = new Date(profile.lastUsedAt).getTime();
+  if (Number.isNaN(lastUsed)) return false;
+  return Date.now() - lastUsed >= ONE_HOUR_MS;
 }
 
 function inferStyleFromText(text) {
@@ -294,9 +310,9 @@ async function speakCoqui(text, profile = null) {
       "$text = [System.Text.Encoding]::UTF8.GetString($bytes)",
       '$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer',
       `$synth.SelectVoice(${JSON.stringify(selectedVoice)})`,
-      '// Slightly slower rate for a calm, measured delivery. Range is -10..10 in SAPI.',
-      '$synth.Rate = -1',
-      '$synth.Volume = 100',
+      '// Slightly slower, smoother rate for a calm and natural delivery.',
+      `$synth.Rate = ${TTS_RATE}`,
+      '$synth.Volume = 95',
       '$synth.Speak($text)',
       '$synth.Dispose()'
     ].join('\r\n');
@@ -328,9 +344,9 @@ async function speakSapi(text, profile = null) {
     "$text = [System.Text.Encoding]::UTF8.GetString($bytes)",
     '$synth = New-Object System.Speech.Synthesis.SpeechSynthesizer',
     `$synth.SelectVoice(${JSON.stringify(selectedVoice)})`,
-    '// Slightly slower rate for a calm, measured delivery. Range is -10..10 in SAPI.',
-    '$synth.Rate = -1',
-    '$synth.Volume = 100',
+    '// Slightly slower, smoother rate for a calm and natural delivery.',
+    `$synth.Rate = ${TTS_RATE}`,
+    '$synth.Volume = 95',
     '$synth.Speak($text)',
     '$synth.Dispose()'
   ].join('\r\n');
@@ -387,13 +403,16 @@ async function main() {
   const llmCli = process.env.LLM_CLI_PATH || 'ollama';
   const llmModel = process.env.LLM_MODEL || 'llama2:13b';
 
-  // Load profile and greet if name known
+  // Load profile and greet if it has been more than an hour since last use
   let profile = loadProfile();
-  if (profile && profile.name) {
+  const shouldGreet = Boolean(profile && profile.name && shouldWelcomeBack(profile));
+  if (shouldGreet) {
     const greet = `Welcome back, ${profile.name}. I am learning your voice and style.`;
     console.log(greet);
     await speakSapi(greet, profile);
   }
+  profile = touchProfileActivity(profile);
+  saveProfile(profile);
 
   if (useVosk) {
     const rec = await startVosk(modelPath);
@@ -419,6 +438,8 @@ async function main() {
             if (isWakePhrase(heard)) {
               isAsleep = false;
               resetUserActivity();
+              profile = touchProfileActivity(profile);
+              saveProfile(profile);
               const wakeText = stripWakePhrase(heard);
               console.log('Ella awake.');
               if (wakeText) {
@@ -436,6 +457,8 @@ async function main() {
           }
 
           resetUserActivity();
+          profile = touchProfileActivity(profile);
+          saveProfile(profile);
 
           // If we're currently speaking (TTS), ignore STT to avoid feedback loops
           if (sttSuppressed) { console.log('Ignored (speaking):', heard); continue; }
@@ -489,6 +512,8 @@ async function main() {
     const line = await new Promise((res)=> rl.question('Say something or type /exit: ', res));
     const t = String(line||'').trim();
     if (!t) continue;
+    profile = touchProfileActivity(profile);
+    saveProfile(profile);
     // interrupt any speaking when user types a command or message
     cancelTts();
     if (t.toLowerCase()==='/exit') break;

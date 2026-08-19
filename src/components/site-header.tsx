@@ -16,6 +16,7 @@ export function SiteHeader() {
 
   const nav = [
     { to: "/", label: "Home" },
+    { to: "/ella", label: "Ella App" },
     { to: "/shop", label: "Shop" },
     { to: "/about", label: "About" },
     { to: "/contact", label: "Contact" },
