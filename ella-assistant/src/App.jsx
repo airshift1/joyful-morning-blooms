@@ -48,6 +48,11 @@ function readStorage(key, fallback) {
   }
 }
 
+// API base for production (set VITE_ELLA_API_BASE to your public tunnel URL, e.g. https://your-tunnel.example.com)
+const API_BASE = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_ELLA_API_BASE)
+  ? String(import.meta.env.VITE_ELLA_API_BASE).replace(/\/$/, '')
+  : '';
+
 const buildReply = (text, memory) => {
   const lower = text.toLowerCase();
   const recent = memory.slice(-3).map((item) => item.text).join(' ');
@@ -87,7 +92,7 @@ const speakText = (text, voiceName = null, useCoqui = false) => {
   if (useCoqui && typeof navigator !== 'undefined' && navigator.online) {
     // Try Coqui TTS first (HTTP request to proxy)
     const speaker = voiceName || 'en-US';
-    fetch(`/api/coqui/tts?text=${encodeURIComponent(text)}&speaker=${encodeURIComponent(speaker)}`)
+    fetch(`${API_BASE ? API_BASE : ''}/api/coqui/tts?text=${encodeURIComponent(text)}&speaker=${encodeURIComponent(speaker)}`)
       .then((resp) => {
         if (!resp.ok) throw new Error('Coqui TTS failed');
         return resp.blob();
@@ -141,7 +146,7 @@ function App() {
   const [voices, setVoices] = useState([]);
   const [selectedVoice, setSelectedVoice] = useState(() => readStorage(storageKeys.selectedVoice, null));
   // Ollama model name persisted in localStorage (admin can change)
-  const [ollamaModel, setOllamaModel] = useState(() => readStorage('ella-ollama-model', 'llama2'));
+  const [ollamaModel, setOllamaModel] = useState(() => readStorage('ella-ollama-model', 'llama3:8b'));
   // Discovered models from local Ollama (if available)
   const [modelsList, setModelsList] = useState(() => readStorage('ella-ollama-models', []));
   const [ollamaStatus, setOllamaStatus] = useState('unknown'); // 'unknown' | 'checking' | 'ok' | 'error'
@@ -524,12 +529,16 @@ function App() {
 
   // Query local Ollama (dev proxy: /api/ollama) with optional streaming progress callback
   const queryOllama = async (text, onProgress) => {
-    const modelName = ollamaModel || readStorage('ella-ollama-model', 'llama2');
+    const modelName = (ollamaModel || readStorage('ella-ollama-model', 'llama3:8b')).trim();
     try {
-      const resp = await fetch(`/api/ollama/chat?model=${encodeURIComponent(modelName)}`, {
+      const resp = await fetch(`${API_BASE ? API_BASE : ''}/api/ollama/v1/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [{ role: 'user', content: text }] }),
+        body: JSON.stringify({
+          model: modelName,
+          messages: [{ role: 'user', content: text }],
+          stream: true,
+        }),
       });
 
       if (!resp.ok) {
@@ -621,7 +630,7 @@ function App() {
         const id = setTimeout(() => controller.abort(), timeoutMs);
 
         // First try to list models (common Ollama endpoint)
-        let resp = await fetch('/api/ollama/models', { signal: controller.signal });
+        let resp = await fetch(`${API_BASE ? API_BASE : ''}/api/ollama/v1/models`, { signal: controller.signal });
         clearTimeout(id);
 
         if (resp.ok) {
@@ -633,10 +642,14 @@ function App() {
               if (data.length && typeof data[0] === 'string') list = data;
               else if (data.length && data[0].name) list = data.map((m) => m.name);
             }
+            if (Array.isArray(data) && data.length && data[0] && data[0].name) {
+              list = data.map((m) => m.name);
+            }
             if (list.length) {
               setModelsList(list);
               localStorage.setItem('ella-ollama-models', JSON.stringify(list));
-              if (!ollamaModel) setOllamaModel(list[0]);
+              const validModel = list.includes(ollamaModel) ? ollamaModel : list[0];
+              setOllamaModel(validModel);
             }
             setOllamaStatus('ok');
             setOllamaStatusMsg('Connected (models discovered)');
@@ -648,11 +661,16 @@ function App() {
         }
 
         // Fallback: try a lightweight chat test
+        const fallbackModel = ollamaModel || 'llama3:8b';
         setOllamaStatusMsg('Attempting chat test...');
-        const testResp = await fetch(`/api/ollama/chat?model=${encodeURIComponent(ollamaModel || 'llama2')}`, {
+        const testResp = await fetch(`${API_BASE ? API_BASE : ''}/api/ollama/v1/completions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: [{ role: 'user', content: 'ping' }] }),
+          body: JSON.stringify({
+            model: fallbackModel,
+            messages: [{ role: 'user', content: 'ping' }],
+            stream: false,
+          }),
         });
 
         if (testResp.ok) {
@@ -681,7 +699,7 @@ function App() {
           const id = setTimeout(() => controller.abort(), timeoutMs);
 
           // Try to get speakers list
-          let resp = await fetch('/api/coqui/speakers', { signal: controller.signal });
+          let resp = await fetch(`${API_BASE ? API_BASE : ''}/api/coqui/speakers`, { signal: controller.signal });
           clearTimeout(id);
 
           if (resp.ok) {
@@ -713,7 +731,7 @@ function App() {
 
           // Fallback: test a simple TTS request
           setCoquiStatusMsg('Attempting TTS test...');
-          const testResp = await fetch(`/api/coqui/tts?text=hello&speaker=${encodeURIComponent(coquiSpeaker || 'en-US')}`, {
+          const testResp = await fetch(`${API_BASE ? API_BASE : ''}/api/coqui/tts?text=hello&speaker=${encodeURIComponent(coquiSpeaker || 'en-US')}`, {
             signal: controller.signal,
           });
 
@@ -811,6 +829,26 @@ function App() {
           </div>
           <div className="live-pill"><Bot size={14} /> online</div>
         </header>
+
+        {/* Connection banner: shows LLM (Ollama) and TTS (Coqui/browser) status with quick actions */}
+        <div className="connection-banner" style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',background:'#0f1724',color:'#e6eef8',borderBottom:'1px solid rgba(255,255,255,0.03)'}}>
+          <div style={{display:'flex',gap:12,alignItems:'center'}}>
+            <span style={{display:'inline-block',width:10,height:10,borderRadius:10,background: ollamaStatus === 'ok' ? '#22c55e' : ollamaStatus === 'checking' ? '#f59e0b' : '#ef4444'}}></span>
+            <strong style={{marginLeft:4}}>LLM:</strong>
+            <span style={{marginLeft:6}}>{ollamaStatusMsg || (ollamaStatus === 'ok' ? 'Connected' : ollamaStatus === 'checking' ? 'Checking...' : 'Not reachable')}</span>
+
+            <span style={{width:12}} />
+
+            <span style={{display:'inline-block',width:10,height:10,borderRadius:10,background: coquiStatus === 'ok' ? '#22c55e' : coquiStatus === 'checking' ? '#f59e0b' : '#ef4444'}}></span>
+            <strong style={{marginLeft:4}}>TTS:</strong>
+            <span style={{marginLeft:6}}>{coquiStatusMsg || (coquiStatus === 'ok' ? 'Connected' : coquiStatus === 'checking' ? 'Checking...' : 'Not reachable')}</span>
+          </div>
+
+          <div>
+            <button className="ghost-button" onClick={async ()=>{ addLog('Rechecking Ollama & Coqui...', 'info'); await checkOllamaConnection(3000); await checkCoquiConnection(3000); }}>Recheck</button>
+            <button className="secondary-button" style={{marginLeft:8}} onClick={()=>{ setSelectedTab('admin'); addLog('Opening admin tab','info'); }}>Open Admin</button>
+          </div>
+        </div>
 
         {selectedTab === 'chat' && (
           <section className="chat-card">
