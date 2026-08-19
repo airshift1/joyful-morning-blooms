@@ -9,7 +9,7 @@ export default defineConfig({
     proxy: {
       // Proxy to local Ollama HTTP API during development
       '/api/ollama': {
-        target: 'http://localhost:11434',
+        target: 'http://127.0.0.1:11434',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/ollama/, ''),
       },
