@@ -536,7 +536,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: modelName,
-          input: text,
+          prompt: text,
           stream: true,
         }),
       });
@@ -668,7 +668,7 @@ function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: fallbackModel,
-          input: 'ping',
+          prompt: 'ping',
             stream: false,
           }),
         });
