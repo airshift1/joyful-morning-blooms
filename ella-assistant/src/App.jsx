@@ -536,7 +536,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: modelName,
-          messages: [{ role: 'user', content: text }],
+          input: text,
           stream: true,
         }),
       });
@@ -668,7 +668,7 @@ function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: fallbackModel,
-            messages: [{ role: 'user', content: 'ping' }],
+          input: 'ping',
             stream: false,
           }),
         });
