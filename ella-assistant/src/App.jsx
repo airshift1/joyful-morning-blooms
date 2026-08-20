@@ -5,7 +5,6 @@ import {
   LayoutDashboard,
   MessageSquareText,
   Mic,
-  Phone,
   Plus,
   Send,
   ShieldCheck,
@@ -551,47 +550,36 @@ function App() {
         const reader = resp.body.getReader();
         const decoder = new TextDecoder();
         let done = false;
+        let buffer = '';
         let accumulated = '';
 
         while (!done) {
           const { value, done: d } = await reader.read();
           done = d;
           if (value) {
-            const chunk = decoder.decode(value, { stream: true });
-            accumulated += chunk;
+            buffer += decoder.decode(value, { stream: !done });
+            const lines = buffer.split(/\r?\n/);
+            buffer = lines.pop() || '';
 
-            // Try to clean common 'data: ' NDJSON prefixes
-            const cleaned = accumulated.replace(/\ndata: /g, '\n');
-
-            // Provide the raw cleaned stream to the UI for progressive updates
-            try {
-              onProgress(cleaned);
-            } catch (e) {
-              // ignore progress handler errors
+            for (const rawLine of lines) {
+              const line = rawLine.trim();
+              if (!line || line === 'data: [DONE]') continue;
+              const jsonText = line.startsWith('data: ') ? line.slice(6) : line;
+              try {
+                const chunk = JSON.parse(jsonText);
+                const piece = chunk.choices?.[0]?.text || chunk.response || '';
+                if (piece) {
+                  accumulated += piece;
+                  onProgress(accumulated);
+                }
+              } catch {
+                // Ignore incomplete stream lines; the remaining buffer is parsed next.
+              }
             }
           }
         }
 
-        // Attempt to extract a final textual reply from the streamed content
-        const lines = accumulated.trim().split(/\r?\n/).filter(Boolean);
-        for (let i = lines.length - 1; i >= 0; i--) {
-          const line = lines[i].trim();
-          try {
-            const j = JSON.parse(line);
-            if (j.response) return j.response;
-            if (j.choices && j.choices[0]) {
-              const ch = j.choices[0];
-              if (ch.message && ch.message.content) return ch.message.content;
-              if (ch.text) return ch.text;
-            }
-            if (j.text) return j.text;
-          } catch (e) {
-            // not JSON, continue
-          }
-        }
-
-        // Fallback: return the cleaned accumulated text
-        return accumulated;
+        return accumulated.trim();
       }
 
       // Non-streaming response path
@@ -850,6 +838,35 @@ function App() {
           </div>
         </div>
 
+        {selectedTab === 'dashboard' && (
+          <section className="chat-card">
+            <div className="admin-grid">
+              <div className="admin-settings">
+                <div className="panel-header"><LayoutDashboard size={16} /> <span>Dashboard</span></div>
+                <div style={{ display: 'grid', gap: 12 }}>
+                  <div className="panel card" style={{ padding: 16 }}>
+                    <strong>Today’s focus</strong>
+                    <p style={{ margin: '10px 0 0' }}>Keep the schedule light, handle the most important task first, and leave room for family and rest.</p>
+                  </div>
+                  <div className="panel card" style={{ padding: 16 }}>
+                    <strong>Voice & AI status</strong>
+                    <p style={{ margin: '10px 0 0' }}>Ella is ready to listen, respond, and remember your notes. Voice input and local AI are available when the services are running.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="admin-terminal">
+                <div className="panel-header"><BrainCircuit size={16} /> <span>Memory snapshot</span></div>
+                <ul className="memory-list" style={{ marginTop: 12 }}>
+                  {memory.length ? memory.slice(-4).reverse().map((item) => <li key={item.id}>{item.text}</li>) : (
+                    <li>Ella is ready to remember your goals, plans, and family priorities.</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </section>
+        )}
+
         {selectedTab === 'chat' && (
           <section className="chat-card">
             <div className="message-list">
@@ -877,16 +894,38 @@ function App() {
           </section>
         )}
 
+        {selectedTab === 'memory' && (
+          <section className="chat-card">
+            <div className="admin-grid">
+              <div className="admin-settings">
+                <div className="panel-header"><BrainCircuit size={16} /> <span>Memory</span></div>
+                <ul className="memory-list" style={{ marginTop: 12 }}>
+                  {memory.length ? memory.slice(-8).reverse().map((item) => <li key={item.id}>{item.text}</li>) : (
+                    <>
+                      <li>Ella remembers your important priorities.</li>
+                      <li>Family time is a focus.</li>
+                      <li>Daily plans can be kept simple and calm.</li>
+                    </>
+                  )}
+                </ul>
+              </div>
+
+              <div className="admin-terminal">
+                <div className="panel-header"><Sparkles size={16} /> <span>Memory mood</span></div>
+                <div style={{ padding: 16 }}>
+                  <strong>Current focus</strong>
+                  <p style={{ margin: '10px 0 0' }}>Keep life simple, protect your energy, and remember what matters most.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
         {selectedTab === 'admin' && (
           <section className="chat-card admin-full">
             <div className="admin-grid">
               <div className="admin-settings">
                 <div className="panel-header"><ShieldCheck size={16} /> <span>Settings</span></div>
-                <label>Default phone number</label>
-                <input value={phone} onChange={(e)=>setPhone(e.target.value)} placeholder="+1 555 123 4567" />
-
-                <label style={{marginTop:10}}>Phone Shortcut name</label>
-                <input value={readStorage(storageKeys.shortcutName,'Ella Send SMS')} onChange={(e)=>{ localStorage.setItem(storageKeys.shortcutName, e.target.value); addLog('Shortcut name set: '+e.target.value,'info'); }} placeholder="Ella Send SMS" />
 
                 <label style={{marginTop:10}}>LLM Model</label>
                 {modelsList && modelsList.length > 0 ? (
@@ -995,26 +1034,19 @@ function App() {
                     <>
                       <div className="panel card">
                         <div className="panel-header">
-                          <Phone size={16} />
-                          <span>Texting</span>
-                        </div>
-                        <label>Phone number</label>
-                        <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+1 555 123 4567" />
-                        <div style={{display:'flex',gap:8,marginTop:8}}>
-                          <button className="primary-button wide" onClick={sendText}>Open SMS</button>
-                          <button className="secondary-button wide" onClick={() => sendTextViaShortcut(input || 'Hello Ella')} style={{padding:'10px 12px'}}>Send via Phone Shortcut</button>
-                        </div>
-                      </div>
-
-                      <div className="panel card">
-                        <div className="panel-header">
                           <BrainCircuit size={16} />
                           <span>Memory</span>
                         </div>
                         <ul className="memory-list">
-                          {memory.slice(-4).reverse().map((item) => (
+                          {memory.length ? memory.slice(-4).reverse().map((item) => (
                             <li key={item.id}>{item.text}</li>
-                          ))}
+                          )) : (
+                            <>
+                              <li>Ella remembers your goals.</li>
+                              <li>Keep plans simple and calm.</li>
+                              <li>Family time stays in focus.</li>
+                            </>
+                          )}
                         </ul>
                       </div>
 
