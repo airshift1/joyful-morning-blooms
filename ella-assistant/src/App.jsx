@@ -145,7 +145,7 @@ function App() {
   const [voices, setVoices] = useState([]);
   const [selectedVoice, setSelectedVoice] = useState(() => readStorage(storageKeys.selectedVoice, null));
   // Ollama model name persisted in localStorage (admin can change)
-  const [ollamaModel, setOllamaModel] = useState(() => readStorage('ella-ollama-model', 'llama3:8b'));
+  const [ollamaModel, setOllamaModel] = useState(() => readStorage('ella-ollama-model', 'llama2:13b'));
   // Discovered models from local Ollama (if available)
   const [modelsList, setModelsList] = useState(() => readStorage('ella-ollama-models', []));
   const [ollamaStatus, setOllamaStatus] = useState('unknown'); // 'unknown' | 'checking' | 'ok' | 'error'
@@ -528,7 +528,7 @@ function App() {
 
   // Query local Ollama (dev proxy: /api/ollama) with optional streaming progress callback
   const queryOllama = async (text, onProgress) => {
-    const modelName = (ollamaModel || readStorage('ella-ollama-model', 'llama3:8b')).trim();
+    const modelName = (ollamaModel || readStorage('ella-ollama-model', 'llama2:13b')).trim();
     try {
       const resp = await fetch(`${API_BASE ? API_BASE : ''}/api/ollama/v1/completions`, {
         method: 'POST',
@@ -630,13 +630,17 @@ function App() {
               if (data.length && typeof data[0] === 'string') list = data;
               else if (data.length && data[0].name) list = data.map((m) => m.name);
             }
+            if (Array.isArray(data?.data)) {
+              list = data.data.map((m) => m.id || m.name).filter(Boolean);
+            }
             if (Array.isArray(data) && data.length && data[0] && data[0].name) {
               list = data.map((m) => m.name);
             }
             if (list.length) {
               setModelsList(list);
               localStorage.setItem('ella-ollama-models', JSON.stringify(list));
-              const validModel = list.includes(ollamaModel) ? ollamaModel : list[0];
+              const preferredModel = list.find((model) => model === 'llama2:13b') || list[0];
+              const validModel = list.includes('llama2:13b') ? 'llama2:13b' : (list.includes(ollamaModel) ? ollamaModel : preferredModel);
               setOllamaModel(validModel);
             }
             setOllamaStatus('ok');
@@ -649,7 +653,7 @@ function App() {
         }
 
         // Fallback: try a lightweight chat test
-        const fallbackModel = ollamaModel || 'llama3:8b';
+        const fallbackModel = ollamaModel || 'llama2:13b';
         setOllamaStatusMsg('Attempting chat test...');
         const testResp = await fetch(`${API_BASE ? API_BASE : ''}/api/ollama/v1/completions`, {
           method: 'POST',
